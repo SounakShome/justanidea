@@ -1,0 +1,143 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Token {
+  email      String   @unique
+  code       String   @unique
+  expiration DateTime
+}
+
+model Company {
+  id             String   @id @default(cuid())
+  Name           String   @unique
+  Industry       String
+  GSTIN          String   @unique
+  CompanySize    String
+  Address        String
+  CompanyWebsite String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime
+  users          User[]
+}
+
+model User {
+  id        String           @id @default(cuid())
+  username  String
+  email     String           @unique
+  password  String
+  role      String           @default("user")
+  verified  Boolean          @default(false)
+  onboarded Boolean          @default(false)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime
+  company   Company?         @relation(fields: [companyId], references: [id])
+  companyId String?
+  logs      Inventory_logs[]
+}
+
+model Customer {
+  customer_id  String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  phone        String   @unique
+  address      String
+  orderHistory Order[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Category {
+  castegory_id String     @id @default(cuid())
+  name         String
+  description  String
+  products     Products[]
+}
+
+model Products {
+  product_id  String     @id @default(cuid())
+  name        String
+  description String
+  category    Category   @relation(fields: [categoryId], references: [castegory_id])
+  categoryId  String
+  brand       String
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  variants    Variants[]
+}
+
+model Variants {
+  variant_id String           @id @default(cuid())
+  product    Products         @relation(fields: [productId], references: [product_id])
+  productId  String
+  size       String
+  color      String
+  HSBN       Int
+  price      Float
+  stock      Int
+  orderItems order_items[]
+  logs       Inventory_logs[]
+  supplier   Supplier?        @relation(fields: [supplierId], references: [supplier_id])
+  supplierId String?
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+
+  @@unique([productId, size, color])
+}
+
+model Order {
+  order_id     String        @id @default(cuid())
+  customer     Customer      @relation(fields: [customerId], references: [customer_id])
+  customerId   String
+  order_date   DateTime      @default(now())
+  total_amount Float
+  status       String        @default("pending")
+  items        order_items[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+}
+
+model order_items {
+  order_item_id String   @id @default(cuid())
+  order         Order    @relation(fields: [orderId], references: [order_id])
+  orderId       String
+  variant       Variants @relation(fields: [variantId], references: [variant_id])
+  variantId     String
+  quantity      Int
+  price         Float
+
+  @@unique([orderId, variantId])
+  @@index([orderId])
+  @@index([variantId])
+}
+
+model Supplier {
+  supplier_id String     @id @default(cuid())
+  name        String
+  email       String     @unique
+  phone       String     @unique
+  address     String
+  variants    Variants[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+}
+
+model Inventory_logs {
+  log_id      String   @id @default(cuid())
+  variant     Variants @relation(fields: [variantId], references: [variant_id])
+  variantId   String
+  change      Int
+  reason      String
+  creatredBy  User     @relation(fields: [createdById], references: [id])
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([variantId])
+}

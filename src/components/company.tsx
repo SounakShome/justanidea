@@ -94,16 +94,16 @@ export default function MyForm() {
           name="companyName"
           render={({  }) => (
             <FormItem>
-              <FormLabel>Company Name</FormLabel>
+              <FormLabel>Company Name<span className="text-red-500">*</span></FormLabel>
               <FormControl>
                 <Input 
                 placeholder="Acme Inc."
                 onChange={(e) => setCompanyName(e.target.value)}
                 value={companyName || ""}
                 type="text"
+                required
                  />
               </FormControl>
-              <FormDescription>This is your public display name.</FormDescription>
               <FormMessage />
             </FormItem>
           )}
@@ -114,16 +114,16 @@ export default function MyForm() {
           name="industry"
           render={({  }) => (
             <FormItem>
-              <FormLabel>Industry</FormLabel>
+              <FormLabel>Industry <span className="text-red-500">*</span></FormLabel>
               <FormControl>
                 <Input 
                 placeholder="Technology, Healthcare, etc."
                 onChange={(e) => setIndustry(e.target.value)}
                 value={industry || ""}
                 type="text"
+                required
                  />
               </FormControl>
-              <FormDescription>This is your public display name.</FormDescription>
               <FormMessage />
             </FormItem>
           )}
@@ -134,16 +134,16 @@ export default function MyForm() {
           name="gstin"
           render={({  }) => (
             <FormItem>
-              <FormLabel>GSTIN</FormLabel>
+              <FormLabel>GSTIN<span className="text-red-500">*</span></FormLabel>
               <FormControl>
                 <Input 
                 placeholder="GSTIN..."
                 onChange={(e) => setGstin(e.target.value)}
                 value={gstin || ""}
                 type="text"
+                required
                 />
               </FormControl>
-              <FormDescription>This is your public display name.</FormDescription>
               <FormMessage />
             </FormItem>
           )}
@@ -154,8 +154,8 @@ export default function MyForm() {
           name="companySize"
           render={({  }) => (
             <FormItem>
-              <FormLabel>Company Size</FormLabel>
-              <Select onValueChange={setCompanySize} value={companySize} >
+              <FormLabel>Company Size<span className="text-red-500">*</span></FormLabel>
+              <Select onValueChange={setCompanySize} value={companySize} required >
                 <FormControl>
                   <SelectTrigger className="w-1/3 hover:cursor-pointer">
                     <SelectValue placeholder="Select a company size" />
@@ -178,7 +178,7 @@ export default function MyForm() {
           name="address"
           render={({  }) => (
             <FormItem>
-              <FormLabel>Address</FormLabel>
+              <FormLabel>Address<span className="text-red-500">*</span></FormLabel>
               <FormControl>
                 <Textarea
                   placeholder="Address..."
@@ -186,9 +186,9 @@ export default function MyForm() {
                   rows={3}
                   onChange={(e) => setAddress(e.target.value)}
                   value={address || ""}
+                  required
                 />
               </FormControl>
-              <FormDescription>You can @mention other users and organizations.</FormDescription>
               <FormMessage />
             </FormItem>
           )}

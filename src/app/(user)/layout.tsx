@@ -5,6 +5,7 @@ import connectDB from "@/db/mongoose";
 import { Toaster } from "@/components/ui/sonner";
 import { auth } from "@/auth";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 
 export const metadata: Metadata = {
   title: "Create Next App",
@@ -20,6 +21,12 @@ export default async function RootLayout({
   await connectDB();
 
   const session = await auth();
+
+  console.log('session', session);
+  
+  if (session?.user && session.user.company==null){
+    redirect('/company');
+  }
 
   if (!session?.user) {
     return (

@@ -6,12 +6,10 @@ import { SiteHeader } from "@/components/site-header"
 
 import data from "./data.json"
 
-const metadata: Metadata = {
+export const metadata: Metadata = {
   title: "Dashboard",
   description: "Streamline your inventory management with our powerful yet easy-to-use system. Perfect for businesses of all sizes.",
 };
-
-export { metadata };
 
 export default function Page() {
   return (

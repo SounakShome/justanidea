@@ -5,12 +5,16 @@ import Pricing from '@/components/Pricing';
 import Testimonials from '@/components/Testimonials';
 import Cta from '@/components/CTA';
 import Footer from '@/components/Footer';
+import { auth } from '@/auth';
 
-export default function Home() {
+export default async function Home() {
+
+  // Check if the user is authenticated
+  const session = await auth();
 
   return (
     <main className="min-h-screen overflow-x-hidden">
-      <Header />
+      <Header session={session} />
       <Hero />
       <Features />
       <Pricing />

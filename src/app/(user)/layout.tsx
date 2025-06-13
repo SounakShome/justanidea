@@ -21,8 +21,6 @@ export default async function RootLayout({
   await connectDB();
 
   const session = await auth();
-
-  console.log('session', session);
   
   if (session?.user && session.user.company==null){
     redirect('/company');

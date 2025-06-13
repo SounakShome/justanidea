@@ -8,6 +8,17 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum Role {
+  SALESMAN
+  ADMIN
+}
+
+enum PurchaseStatus {
+  PENDING
+  RECEIVED
+  CANCELLED
+}
+
 model Token {
   email      String   @unique
   code       String   @unique
@@ -21,25 +32,26 @@ model Company {
   GSTIN          String   @unique
   CompanySize    String
   Address        String
-  CompanyWebsite String
+  CompanyWebsite String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime
   users          User[]
 }
 
 model User {
-  id        String           @id @default(cuid())
-  username  String
-  email     String           @unique
-  password  String
-  role      String           @default("user")
-  verified  Boolean          @default(false)
-  onboarded Boolean          @default(false)
-  createdAt DateTime         @default(now())
-  updatedAt DateTime
-  company   Company?         @relation(fields: [companyId], references: [id])
-  companyId String?
-  logs      Inventory_logs[]
+  id                    String           @id @default(cuid())
+  username              String
+  email                 String           @unique
+  password              String
+  role                  Role             @default(SALESMAN)
+  verified              Boolean          @default(false)
+  onboarded             Boolean          @default(false)
+  createdAt             DateTime         @default(now())
+  updatedAt             DateTime
+  companyId             String?
+  company               Company?         @relation(fields: [companyId], references: [id])
+  logs                  Inventory_logs[]
+  createdPurchaseOrders PurchaseOrder[]
 }
 
 model Customer {
@@ -54,63 +66,64 @@ model Customer {
 }
 
 model Category {
-  castegory_id String     @id @default(cuid())
-  name         String
-  description  String
-  products     Products[]
+  category_id String     @id @default(cuid())
+  name        String
+  description String
+  products    Products[]
 }
 
 model Products {
   product_id  String     @id @default(cuid())
   name        String
   description String
-  category    Category   @relation(fields: [categoryId], references: [castegory_id])
   categoryId  String
   brand       String
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
+  category    Category   @relation(fields: [categoryId], references: [category_id])
   variants    Variants[]
 }
 
 model Variants {
-  variant_id String           @id @default(cuid())
-  product    Products         @relation(fields: [productId], references: [product_id])
-  productId  String
-  size       String
-  color      String
-  HSBN       Int
-  price      Float
-  stock      Int
-  orderItems order_items[]
-  logs       Inventory_logs[]
-  supplier   Supplier?        @relation(fields: [supplierId], references: [supplier_id])
-  supplierId String?
-  createdAt  DateTime         @default(now())
-  updatedAt  DateTime         @updatedAt
+  id            String           @id @default(cuid())
+  productId     String
+  product       Products         @relation(fields: [productId], references: [product_id])
+  size          String
+  color         String
+  HSBN          Int
+  price         Float
+  stock         Int
+  supplierId    String?
+  supplier      Supplier?        @relation(fields: [supplierId], references: [id])
+  orderItems    order_items[]
+  logs          Inventory_logs[]
+  purchaseItems PurchaseItem[]
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
 
   @@unique([productId, size, color])
 }
 
 model Order {
   order_id     String        @id @default(cuid())
-  customer     Customer      @relation(fields: [customerId], references: [customer_id])
   customerId   String
   order_date   DateTime      @default(now())
   total_amount Float
   status       String        @default("pending")
-  items        order_items[]
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
+  customer     Customer      @relation(fields: [customerId], references: [customer_id])
+  items        order_items[]
 }
 
 model order_items {
   order_item_id String   @id @default(cuid())
-  order         Order    @relation(fields: [orderId], references: [order_id])
   orderId       String
-  variant       Variants @relation(fields: [variantId], references: [variant_id])
   variantId     String
   quantity      Int
   price         Float
+  order         Order    @relation(fields: [orderId], references: [order_id])
+  variant       Variants @relation(fields: [variantId], references: [id])
 
   @@unique([orderId, variantId])
   @@index([orderId])
@@ -118,26 +131,50 @@ model order_items {
 }
 
 model Supplier {
-  supplier_id String     @id @default(cuid())
-  name        String
-  email       String     @unique
-  phone       String     @unique
-  address     String
-  variants    Variants[]
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  id        String          @id @default(cuid())
+  name      String
+  email     String?
+  phone     String?
+  address   String?
+  createdAt DateTime        @default(now())
+  purchases PurchaseOrder[]
+  variants  Variants[]
+}
+
+model PurchaseOrder {
+  id          String         @id @default(cuid())
+  supplierId  String
+  createdById String
+  date        DateTime       @default(now())
+  status      PurchaseStatus @default(PENDING)
+  totalAmount Float
+  notes       String?
+  supplier    Supplier       @relation(fields: [supplierId], references: [id])
+  createdBy   User           @relation(fields: [createdById], references: [id])
+  items       PurchaseItem[]
+}
+
+model PurchaseItem {
+  id         String        @id @default(cuid())
+  purchaseId String
+  variantId  String
+  quantity   Int
+  unitPrice  Float
+  totalPrice Float
+  purchase   PurchaseOrder @relation(fields: [purchaseId], references: [id])
+  variant    Variants      @relation(fields: [variantId], references: [id])
 }
 
 model Inventory_logs {
   log_id      String   @id @default(cuid())
-  variant     Variants @relation(fields: [variantId], references: [variant_id])
   variantId   String
   change      Int
   reason      String
-  creatredBy  User     @relation(fields: [createdById], references: [id])
   createdById String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  variant     Variants @relation(fields: [variantId], references: [id])
+  creatredBy  User     @relation(fields: [createdById], references: [id])
 
   @@index([variantId])
 }

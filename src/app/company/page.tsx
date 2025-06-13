@@ -2,8 +2,9 @@ import React from 'react'
 import { auth } from '@/auth';
 import { redirect } from 'next/navigation';
 import CompanyForm from '@/components/company'
+import { getUserFromDb } from '@/utils/auth';
 
-const Company = async () => {
+export default async function Company() {
 
     const session = await auth();
 
@@ -12,6 +13,12 @@ const Company = async () => {
     if (!session) {
         redirect('/login')
     }
+
+    await getUserFromDb("sounakshome@gmail.com", "Sounak@2004").then((user) => {
+        if (!user) {
+            // redirect('/login')
+        }
+    });
     
     if (session?.user?.role !== 'admin') {
         redirect('/dashboard')
@@ -28,5 +35,3 @@ const Company = async () => {
         </div>
     )
 }
-
-export default Company

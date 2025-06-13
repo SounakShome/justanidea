@@ -72,6 +72,13 @@ export default function MyForm() {
         website
       }
       console.log("Form submitted", values);
+      await fetch("/api/company", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(values)
+      });
     } catch (error) {
       console.error("Form submission error", error);
       toast.error("Failed to submit the form. Please try again.");

@@ -43,14 +43,30 @@ export const getUserFromDb = async (email: string, password: string) => {
     if (!isMatch) {
       return null;
     }
+    console.log("User found:", user);
     const deets = {
       username: user.username,
       email: user.email,
       role: user.role,
+      company: user.companyId,
     };
     return deets;
   } catch (error) {
     console.error("Error fetching user from DB:", error);
     return null;
+  }
+};
+
+export const getCompaniesFromDb = async () => {
+  try {
+    const companies = await prisma.company.findMany({
+      include: {
+        users: true,
+      },
+    });
+    return companies;
+  } catch (error) {
+    console.error("Error fetching companies from DB:", error);
+    return [];
   }
 };

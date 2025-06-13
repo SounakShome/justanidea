@@ -3,10 +3,10 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { Menu, X, Package } from 'lucide-react';
+import { Menu, X, Package, ArrowDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-const Header = () => {
+const Header = ({ session }: { session?: object }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
 
@@ -58,20 +58,31 @@ const Header = () => {
         </nav>
 
         {/* Desktop CTA Buttons */}
-        <div className="hidden hover:cursor-pointer md:flex items-center space-x-4">
-          <Link
-            href="/login">
-            <Button variant="outline" size="default">
-              Login
-            </Button>
-          </Link>
-          <Link
-            href="/signup">
-            <Button variant="default" size="default">
-              Create Account
-            </Button>
-          </Link>
+        <div>
+          {session ? (
+            <Link href="/dashboard">
+              <Button variant="outline" className='cursor-pointer' size="default">
+                Dashboard <ArrowDown className="ml-2 h-4 w-4 animate-bounce rotate-[-90deg]" />
+              </Button>
+            </Link>
+          ) : (
+            <div className="hidden hover:cursor-pointer md:flex items-center space-x-4">
+              <Link
+                href="/login">
+                <Button variant="outline" size="default">
+                  Login
+                </Button>
+              </Link>
+              <Link
+                href="/signup">
+                <Button variant="default" size="default">
+                  Create Account
+                </Button>
+              </Link>
+            </div>
+          )}
         </div>
+
 
         {/* Mobile Menu Button */}
         <button

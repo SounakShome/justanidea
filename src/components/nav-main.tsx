@@ -1,8 +1,7 @@
 "use client"
 
-import { IconCirclePlusFilled, IconMail, type Icon } from "@tabler/icons-react"
-import { useRouter } from "next/navigation"
-import { Button } from "@/components/ui/button"
+import { IconCirclePlusFilled, type Icon } from "@tabler/icons-react"
+import { useRouter, usePathname } from "next/navigation"
 import {
   SidebarGroup,
   SidebarGroupContent,
@@ -21,7 +20,8 @@ export function NavMain({
   }[]
 }) {
 
-  const router = useRouter()
+  const router = useRouter();
+  const pathName = usePathname();
 
   return (
     <SidebarGroup>
@@ -29,26 +29,19 @@ export function NavMain({
         <SidebarMenu>
           <SidebarMenuItem className="flex items-center gap-2">
             <SidebarMenuButton
+              onClick={() => router.push("/quick-create")}
               tooltip="Quick Create"
-              className="bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground active:bg-primary/90 active:text-primary-foreground min-w-8 duration-200 ease-linear"
+              className="cursor-pointer bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground active:bg-primary/90 active:text-primary-foreground min-w-8 duration-200 ease-linear"
             >
               <IconCirclePlusFilled />
-              <span>Quick Create</span>
+              Quick Create
             </SidebarMenuButton>
-            <Button
-              size="icon"
-              className="size-8 group-data-[collapsible=icon]:opacity-0"
-              variant="outline"
-            >
-              <IconMail />
-              <span className="sr-only">Inbox</span>
-            </Button>
           </SidebarMenuItem>
         </SidebarMenu>
         <SidebarMenu>
           {items.map((item) => (
-            <SidebarMenuItem key={item.title} onClick={()=> router.push(item.url)}>
-              <SidebarMenuButton tooltip={item.title} className="cursor-pointer data-[active=true]:bg-primary data-[active=true]:text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground active:bg-primary/90 active:text-primary-foreground">
+            <SidebarMenuItem key={item.title} onClick={() => router.push(item.url)}>
+              <SidebarMenuButton tooltip={item.title} className={`cursor-pointer data-[active=true]:bg-primary data-[active=true]:text-primary-foreground hover:bg-primary/90 ${pathName === item.url ? "bg-gray-300" : ""} hover:text-primary-foreground active:bg-primary/90 active:text-primary-foreground`}>
                 {item.icon && <item.icon />}
                 <span>{item.title}</span>
               </SidebarMenuButton>

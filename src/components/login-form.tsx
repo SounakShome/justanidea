@@ -3,7 +3,6 @@
 import { useState } from "react"
 import { cn } from "@/lib/utils"
 import { signIn } from "next-auth/react"
-import { useSession } from "next-auth/react"
 import { Button } from "@/components/ui/button"
 import {
     Card,
@@ -14,7 +13,6 @@ import {
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { redirect } from "next/navigation"
 import { EyeIcon, EyeClosed } from "lucide-react"
 
 
@@ -23,22 +21,17 @@ export function LoginForm({
     ...props
 }: React.ComponentPropsWithoutRef<"div">) {
 
-    const { data: session } = useSession()
-
-    if (session) {
-        redirect("/dashboard");
-    }
-
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [showPassword, setShowPassword] = useState(false);
+    const [loading, setLoading] = useState(false);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         // Handle login logic here
-        console.log({ email, password });
-        const res = await signIn("credentials", { email, password }, { redirect: false });
-        console.log(res);
+        setLoading(true);
+        await signIn("credentials", { email, password }, { redirect: false });
+        setLoading(false);
     };
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -105,8 +98,8 @@ export function LoginForm({
                                         </Button>
                                     </div>
                                 </div>
-                                <Button type="submit" className="w-full cursor-pointer">
-                                    Login
+                                <Button disabled={loading} type="submit" className="w-full cursor-pointer">
+                                    {loading ? "Logging in..." : "Login"}
                                 </Button>
                             </div>
                             <div className="text-center text-sm">

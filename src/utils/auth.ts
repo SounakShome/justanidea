@@ -43,12 +43,14 @@ export const getUserFromDb = async (email: string, password: string) => {
     if (!isMatch) {
       return null;
     }
-    console.log("User found:", user);
+
+    const company = await getCompaniesFromDb(email);
+    
     const deets = {
       username: user.username,
       email: user.email,
       role: user.role,
-      company: user.companyId,
+      company: company,
     };
     return deets;
   } catch (error) {
@@ -57,11 +59,15 @@ export const getUserFromDb = async (email: string, password: string) => {
   }
 };
 
-export const getCompaniesFromDb = async () => {
+const getCompaniesFromDb = async (email: string) => {
   try {
-    const companies = await prisma.company.findMany({
-      include: {
-        users: true,
+    const companies = await prisma.company.findFirst({
+      where: {
+        users: {
+          some: {
+            email: email,
+          },
+        },
       },
     });
     return companies;

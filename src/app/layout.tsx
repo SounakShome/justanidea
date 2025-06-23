@@ -6,6 +6,7 @@ import { SessionProvider } from "next-auth/react";
 
 const inter = Inter({ subsets: ['latin'] });
 
+
 export const metadata: Metadata = {
   title: 'StockMaster - Inventory Management System',
   description: 'Streamline your inventory management with our powerful yet easy-to-use system. Perfect for businesses of all sizes.',

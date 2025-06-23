@@ -1,24 +1,11 @@
-"use client"
+import { auth } from "@/auth";
+import UI from "./ui";
 
-import { useEffect } from "react"
-import { redirect } from "next/navigation"
-import { Separator } from "@/components/ui/separator"
+export default async function Settings() {
 
-export default function Settings() {
-
-  useEffect(() => {
-    redirect("/settings/profile");
-  }, [])
+  const session = await auth();
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h3 className="text-lg font-medium">Settings</h3>
-        <p className="text-sm text-muted-foreground">
-          This is how others will see you on the site.
-        </p>
-      </div>
-      <Separator />
-    </div>
+    <UI session={session} />
   )
 }

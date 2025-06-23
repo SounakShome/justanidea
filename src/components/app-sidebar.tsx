@@ -13,6 +13,7 @@ import {
   IconSearch,
   IconSettings,
   IconUsers,
+  IconBriefcase,
 } from "@tabler/icons-react"
 
 import { NavMain } from "@/components/nav-main"
@@ -29,11 +30,6 @@ import {
 } from "@/components/ui/sidebar"
 
 const data = {
-  user: {
-    name: "shadcn",
-    email: "m@example.com",
-    avatar: "/next.svg",
-  },
   navMain: [
     {
       title: "Dashboard",
@@ -42,12 +38,12 @@ const data = {
     },
     {
       title: "Inventory",
-      url: "inventory",
+      url: "/inventory",
       icon: IconArchive,
     },
     {
       title: "Purchases",
-      url: "purchases",
+      url: "/purchases",
       icon: IconClipboard,
     },
     {
@@ -70,6 +66,11 @@ const data = {
       url: "#",
       icon: IconReport,
     },
+    {
+      title: "Customers",
+      url: "/customers",
+      icon: IconBriefcase,
+    },
   ],
   navSecondary: [
     {
@@ -90,7 +91,16 @@ const data = {
   ]
 }
 
-export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
+  userData: {
+    name: string;
+    email: string;
+    image: string;
+  },
+  companyName?: string;
+} 
+
+export function AppSidebar({ companyName, userData, ...props }: AppSidebarProps) {
   return (
     <Sidebar className="rounded-2xl" collapsible="offcanvas" {...props}>
       <SidebarHeader>
@@ -102,7 +112,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             >
               <a href="#">
                 <IconInnerShadowTop className="!size-5" />
-                <span className="text-base font-semibold">Acme Inc.</span>
+                <span className="text-base font-semibold">{companyName}</span>
               </a>
             </SidebarMenuButton>
           </SidebarMenuItem>
@@ -113,7 +123,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <NavSecondary items={data.navSecondary} className="mt-auto" />
       </SidebarContent>
       <SidebarFooter>
-        <NavUser user={data.user} />
+        <NavUser user={{ name: userData.name, email: userData.email, avatar: userData.image }} />
       </SidebarFooter>
     </Sidebar>
   )

@@ -31,7 +31,7 @@ export default async function Company() {
 
     return (
         <div>
-            <CompanyForm />
+            <CompanyForm data={session?.user?.company}/>
         </div>
     )
 }

@@ -4,16 +4,17 @@ import { prisma } from "@/lib/prisma";
 export async function POST(req: NextRequest) {
     try {
         const data = await req.json();
-        // Check if data is an array
-        await prisma.customer.create({
+        await prisma.supplier.create({
             data: {
-                name: data.name,
+                name: data.companyName,
+                division: data.division,
                 phone: data.phone,
                 address: data.address,
+                CIN: data.CIN || null,
                 GSTIN: data.GSTIN || null,
-                State_Name: data.state || null,
-                Code: parseInt(data.code) || 0,
-                updatedAt: new Date(Date.now()),
+                PAN: data.PAN || null,
+                Supp_State: data.Supp_State || null,
+                Code: parseInt(data.code) || 0
             }
         });
         return NextResponse.json({ message: data });

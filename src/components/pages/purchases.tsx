@@ -1,680 +1,808 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Calendar } from '@/components/ui/calendar';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
-import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { toast } from 'sonner';
-import {
-    Plus,
-    Trash2,
-    Save,
-    Send,
-    CalendarIcon,
-    Search,
-    Building2,
-    Package,
-    Calculator,
-    FileText,
-} from 'lucide-react';
-import { SiteHeader } from '@/components/site-header';
+import React, { useState, useEffect } from "react";
+import { useForm } from "react-hook-form";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { toast } from "sonner";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import DatePicker from "@/components/ui/datePicker";
+import { Package, Plus, Scroll, Search, Trash2 } from "lucide-react";
+import { SiteHeader } from "../site-header";
 
-interface PurchaseItem {
-    id: string;
-    productName: string;
-    description: string;
-    quantity: number;
-    unitPrice: number;
-    discount: number;
-    taxRate: number;
-    total: number;
-}
-
-interface Vendor {
+// Types
+type Supplier = {
     id: string;
     name: string;
-    code: string;
-    email: string;
-    phone: string;
+    division: string;
+    CIN: string;
+    GSTIN: string;
+    Supp_State: string;
     address: string;
-}
+    phone: string;
+    PAN: string;
+    Code: number;
+};
 
-const mockVendors: Vendor[] = [
-    {
-        id: '1',
-        name: 'ABC Suppliers Ltd.',
-        code: 'ABC001',
-        email: 'orders@abcsuppliers.com',
-        phone: '+1 (555) 123-4567',
-        address: '123 Business St, City, State 12345'
-    },
-    {
-        id: '2',
-        name: 'XYZ Trading Co.',
-        code: 'XYZ002',
-        email: 'sales@xyztrading.com',
-        phone: '+1 (555) 987-6543',
-        address: '456 Commerce Ave, City, State 67890'
-    },
-    {
-        id: '3',
-        name: 'Global Parts Inc.',
-        code: 'GPI003',
-        email: 'info@globalparts.com',
-        phone: '+1 (555) 456-7890',
-        address: '789 Industrial Blvd, City, State 11111'
+type Variants = {
+    id: string;
+    name: string;
+    size: string;
+    price: number;
+};
+
+type Product = {
+    id: string;
+    name: string;
+    HSN: number;
+    variants: Variants[];
+};
+
+type PurchaseItem = {
+    productId: string;
+    quantity: number;
+    costPrice: number;
+    discount: number;
+    total: number;
+};
+
+type PurchaseFormValues = {
+    supplierId: string;
+    referenceNumber: string;
+    items: PurchaseItem[];
+    taxRate: number;
+    shippingCost: number;
+    notes: string;
+    paymentMethod: string;
+    paymentStatus: string;
+};
+
+const getSuppliers = async (): Promise<Supplier[]> => {
+    // Simulate API delay
+    const res = await fetch("/api/getSuppliers");
+    if (!res.ok) {
+        throw new Error("Failed to fetch suppliers");
     }
-];
+    const data = await res.json();
+    console.log("Fetched suppliers:", data);
+    return data as Supplier[];
+};
 
-export default function PurchaseEntryPage() {
-    const [purchaseOrder, setPurchaseOrder] = useState({
-        poNumber: `PO-${Date.now()}`,
-        vendor: null as Vendor | null,
-        orderDate: new Date(),
-        expectedDeliveryDate: null as Date | null,
-        paymentTerms: '',
-        priority: 'medium',
-        status: 'draft',
-        notes: '',
-        items: [] as PurchaseItem[],
-        subtotal: 0,
-        totalDiscount: 0,
-        totalTax: 0,
-        grandTotal: 0
+const getProducts = async (query: string = "", supplierId: string): Promise<Product[]> => {
+    // Simulate API delay
+    const allProducts: Product[] = await fetch(`/api/getItems/${supplierId}`);
+
+    console.log("Fetched products:", allProducts);
+
+    if (!query) return allProducts;
+
+    const lowerCaseQuery = query.toLowerCase();
+    return allProducts.filter(product =>
+        product.name.toLowerCase().includes(lowerCaseQuery) ||
+        product.sku.toLowerCase().includes(lowerCaseQuery) ||
+        product.category.toLowerCase().includes(lowerCaseQuery)
+    );
+};
+
+const savePurchase = async (data: any): Promise<{ success: boolean; id: string }> => {
+    // Simulate API delay
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    // Simulate successful response
+    return {
+        success: true,
+        id: "PO-" + Math.floor(10000 + Math.random() * 90000)
+    };
+};
+
+// Form field component
+const FormField = ({
+    label,
+    error,
+    children
+}: {
+    label: string;
+    error?: string;
+    children: React.ReactNode;
+}) => (
+    <div className="mb-3">
+        <label className="block text-sm font-medium mb-1">{label}</label>
+        {children}
+        {error && <span className="text-red-500 text-xs">{error}</span>}
+    </div>
+);
+
+export default function PurchaseEntryForm() {
+    // State
+    const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+    const [products, setProducts] = useState<Product[]>([]);
+    const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
+    const [purchaseDate, setPurchaseDate] = useState<Date>(new Date());
+    const [deliveryDate, setDeliveryDate] = useState<Date | undefined>(undefined);
+    const [productSearchQuery, setProductSearchQuery] = useState("");
+    const [isLoadingSuppliers, setIsLoadingSuppliers] = useState(false);
+    const [isLoadingProducts, setIsLoadingProducts] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
+    const [activeTab, setActiveTab] = useState("products");
+
+    // Form
+    const { register, handleSubmit, setValue, getValues, watch, formState: { errors }, reset } = useForm<PurchaseFormValues>({
+        defaultValues: {
+            supplierId: "",
+            referenceNumber: `PO-${Math.floor(10000 + Math.random() * 90000)}`,
+            items: [],
+            taxRate: 0,
+            shippingCost: 0,
+            notes: "",
+            paymentMethod: "bank_transfer",
+            paymentStatus: "pending"
+        }
     });
 
-    const [searchTerm, setSearchTerm] = useState('');
+    const watchItems = watch("items", []);
+    const watchSupplierId = watch("supplierId");
+    const watchTaxRate = watch("taxRate", 0);
+    const watchShippingCost = watch("shippingCost", 0);
 
-    const filteredVendors = mockVendors.filter(vendor =>
-        vendor.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        vendor.code.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-
-    const addItem = () => {
-        const newItem: PurchaseItem = {
-            id: Date.now().toString(),
-            productName: '',
-            description: '',
-            quantity: 1,
-            unitPrice: 0,
-            discount: 0,
-            taxRate: 18,
-            total: 0
-        };
-        setPurchaseOrder(prev => ({
-            ...prev,
-            items: [...prev.items, newItem]
-        }));
-    };
-
-    const removeItem = (id: string) => {
-        setPurchaseOrder(prev => ({
-            ...prev,
-            items: prev.items.filter(item => item.id !== id)
-        }));
-    };
-
-    const updateItem = (id: string, field: keyof PurchaseItem, value: PurchaseItem[typeof field]) => {
-        setPurchaseOrder(prev => ({
-            ...prev,
-            items: prev.items.map(item => {
-                if (item.id === id) {
-                    const updatedItem = { ...item, [field]: value };
-                    // Calculate total for this item
-                    const subtotal = updatedItem.quantity * updatedItem.unitPrice;
-                    const discountAmount = (subtotal * updatedItem.discount) / 100;
-                    const taxableAmount = subtotal - discountAmount;
-                    const taxAmount = (taxableAmount * updatedItem.taxRate) / 100;
-                    updatedItem.total = taxableAmount + taxAmount;
-                    return updatedItem;
-                }
-                return item;
-            })
-        }));
-    };
-
-    // Calculate totals whenever items change
+    // Load suppliers on component mount
     useEffect(() => {
-        const subtotal = purchaseOrder.items.reduce((sum, item) => {
-            return sum + (item.quantity * item.unitPrice);
-        }, 0);
+        const loadSuppliers = async () => {
+            setIsLoadingSuppliers(true);
+            try {
+                const data = await getSuppliers();
+                setSuppliers(data);
+            } catch (error) {
+                console.error("Error loading suppliers:", error);
+                toast("Error",{
+                    description: "Failed to load suppliers"
+                });
+            } finally {
+                setIsLoadingSuppliers(false);
+            }
+        };
 
-        const totalDiscount = purchaseOrder.items.reduce((sum, item) => {
-            return sum + ((item.quantity * item.unitPrice * item.discount) / 100);
-        }, 0);
+        loadSuppliers();
+    }, []);
 
-        const totalTax = purchaseOrder.items.reduce((sum, item) => {
-            const itemSubtotal = item.quantity * item.unitPrice;
-            const itemDiscount = (itemSubtotal * item.discount) / 100;
-            const taxableAmount = itemSubtotal - itemDiscount;
-            return sum + ((taxableAmount * item.taxRate) / 100);
-        }, 0);
+    // Search products when query changes
+    useEffect(() => {
+        const searchProductsDebounced = setTimeout(async () => {
+            setIsLoadingProducts(true);
+            try {
+                const data = await getProducts(productSearchQuery, watchSupplierId);
+                setProducts(data);
+            } catch (error) {
+                console.error("Error searching products:", error);
+                toast("Error",{
+                    description: "Failed to search products"
+                });
+            } finally {
+                setIsLoadingProducts(false);
+            }
+        }, 300);
 
-        const grandTotal = subtotal - totalDiscount + totalTax;
+        return () => clearTimeout(searchProductsDebounced);
+    }, [productSearchQuery, watchSupplierId]);
 
-        setPurchaseOrder(prev => ({
-            ...prev,
-            subtotal,
-            totalDiscount,
-            totalTax,
-            grandTotal
-        }));
-    }, [purchaseOrder.items]);
-
-    const handleSave = () => {
-        if (!purchaseOrder.vendor) {
-            toast.error('Please select a vendor');
-            return;
+    // Update selected supplier when supplier ID changes
+    useEffect(() => {
+        if (watchSupplierId) {
+            const supplier = suppliers.find(s => s.id === watchSupplierId);
+            setSelectedSupplier(supplier || null);
+        } else {
+            setSelectedSupplier(null);
         }
-        if (purchaseOrder.items.length === 0) {
-            toast.error('Please add at least one item');
-            return;
+    }, [watchSupplierId, suppliers]);
+
+    // Helper functions
+    const addProductToItems = (product: Product) => {
+        const currentItems = getValues("items") || [];
+        const existingItem = currentItems.find(item => item.productId === product.id);
+
+        if (existingItem) {
+            // Update quantity if already in cart
+            const updatedItems = currentItems.map(item =>
+                item.productId === product.id
+                    ? {
+                        ...item,
+                        quantity: item.quantity + 1,
+                        total: (item.quantity + 1) * item.costPrice * (1 - item.discount / 100)
+                    }
+                    : item
+            );
+            setValue("items", updatedItems);
+        } else {
+            // Add new item
+            setValue("items", [
+                ...currentItems,
+                {
+                    productId: product.id,
+                    quantity: 1,
+                    costPrice: product.costPrice,
+                    discount: 0,
+                    total: product.costPrice
+                }
+            ]);
         }
-        toast.success('Purchase order saved successfully');
     };
 
-    const handleSubmit = () => {
-        if (!purchaseOrder.vendor) {
-            toast.error('Please select a vendor');
-            return;
-        }
-        if (purchaseOrder.items.length === 0) {
-            toast.error('Please add at least one item');
-            return;
-        }
-        toast.success('Purchase order submitted for approval');
+    const updateItemQuantity = (productId: string, quantity: number) => {
+        const currentItems = getValues("items");
+        const updatedItems = currentItems.map(item =>
+            item.productId === productId
+                ? {
+                    ...item,
+                    quantity,
+                    total: quantity * item.costPrice * (1 - item.discount / 100)
+                }
+                : item
+        );
+        setValue("items", updatedItems);
     };
-    function formatDate(date: Date | undefined) {
-        if (!date) {
-            return ""
-        }
-        return date.toLocaleDateString("en-US", {
-            day: "2-digit",
-            month: "long",
-            year: "numeric",
-        })
-    }
-    function isValidDate(date: Date | undefined) {
-        if (!date) {
-            return false
-        }
-        return !isNaN(date.getTime())
-    }
 
-    const [open, setOpen] = useState(false)
-    const [date, setDate] = useState<Date | undefined>(
-        new Date("2025-06-01")
-    )
-    const [month, setMonth] = useState<Date | undefined>(date)
-    const [value, setValue] = useState(formatDate(date))
+    const updateItemDiscount = (productId: string, discount: number) => {
+        const currentItems = getValues("items");
+        const updatedItems = currentItems.map(item =>
+            item.productId === productId
+                ? {
+                    ...item,
+                    discount,
+                    total: item.quantity * item.costPrice * (1 - discount / 100)
+                }
+                : item
+        );
+        setValue("items", updatedItems);
+    };
+
+    const removeItem = (productId: string) => {
+        const currentItems = getValues("items");
+        setValue("items", currentItems.filter(item => item.productId !== productId));
+    };
+
+    // Calculate subtotal, tax, and total
+    const calculateSubtotal = () => {
+        if (!watchItems?.length) return 0;
+
+        return watchItems.reduce((total, item) => total + item.total, 0);
+    };
+
+    const calculateTaxAmount = () => {
+        return calculateSubtotal() * (watchTaxRate / 100);
+    };
+
+    const calculateTotal = () => {
+        return calculateSubtotal() + calculateTaxAmount() + (parseFloat(watchShippingCost.toString()) || 0);
+    };
+
+    // Form submission
+    const onSubmit = async (data: PurchaseFormValues) => {
+        if (!data.items.length) {
+            toast({
+                title: "No items added",
+                description: "Please add at least one item to the purchase order",
+                variant: "destructive",
+            });
+            return;
+        }
+
+        setIsSaving(true);
+        try {
+            const result = await savePurchase({
+                ...data,
+                purchaseDate,
+                deliveryDate,
+                totalAmount: calculateTotal()
+            });
+
+            if (result.success) {
+                toast({
+                    title: "Purchase order created",
+                    description: `Purchase order ${result.id} has been created`,
+                });
+
+                reset();
+                setPurchaseDate(new Date());
+                setDeliveryDate(undefined);
+                setProductSearchQuery("");
+            }
+        } catch (error) {
+            console.error("Error saving purchase:", error);
+            toast({
+                title: "Error",
+                description: "Failed to save purchase order",
+                variant: "destructive",
+            });
+        } finally {
+            setIsSaving(false);
+        }
+    };
 
     return (
-        <div className="min-h-screen pt-2 md:pt-2 p-4 md:p-6">
-            <div className="max-w-7xl mx-auto space-y-6">
-                {/* Header */}
-                <SiteHeader name="Purchase Order Entry" />
+        <div className="container mx-auto p-6 py-2">
+            <SiteHeader name="Purchase Order" />
 
-                {/* Main Content */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    {/* Left Column - Main Form */}
-                    <div className="lg:col-span-2 space-y-6">
-                        {/* Vendor Selection */}
-                        <Card className="shadow-sm hover:shadow-md transition-shadow">
-                            <CardHeader className="pb-3">
-                                <CardTitle className="flex items-center gap-2 text-lg">
-                                    <Building2 className="h-5 w-5 text-blue-600" />
-                                    Supplier Information
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent className="space-y-4">
-                                <div className="relative">
-                                    <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
-                                    <Input
-                                        placeholder="Search suppliers by name or code..."
-                                        value={searchTerm}
-                                        onChange={(e) => setSearchTerm(e.target.value)}
-                                        className="pl-10"
+            <form className="mt-6" onSubmit={handleSubmit(onSubmit)}>
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                    {/* --- FIRST ROW --- */}
+
+                    {/* Purchase Info - 8 columns */}
+                    <Card className="lg:col-span-12">
+                        <CardHeader className="pb-3">
+                            <CardTitle>Purchase Information</CardTitle>
+                            <CardDescription>Basic details for this purchase order</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="space-y-4">
+                                    <FormField label="Supplier" error={errors.supplierId?.message}>
+                                        <Select
+                                            onValueChange={(value) => setValue("supplierId", value)}
+                                            disabled={isLoadingSuppliers}
+                                        >
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Select supplier" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {suppliers.map(supplier => (
+                                                    <SelectItem key={supplier.id} value={supplier.id}>
+                                                        {`${supplier.name} (${supplier.division})`}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </FormField>
+
+                                    <FormField label="Invoice Number" error={errors.referenceNumber?.message}>
+                                        <Input
+                                            placeholder="PO-12345"
+                                            {...register("referenceNumber", { required: "Reference number is required" })}
+                                        />
+                                    </FormField>
+                                </div>
+
+                                <div className="space-y-4">
+                                    <DatePicker
+                                        setPurchase={setPurchaseDate}
                                     />
                                 </div>
+                            </div>
+                        </CardContent>
+                    </Card>
 
-                                {searchTerm && (
-                                    <div className="border rounded-lg max-h-48 overflow-y-auto">
-                                        {filteredVendors.map((vendor) => (
-                                            <div
-                                                key={vendor.id}
-                                                className="p-3 hover:bg-slate-50 cursor-pointer border-b last:border-b-0"
-                                                onClick={() => {
-                                                    setPurchaseOrder(prev => ({ ...prev, vendor }));
-                                                    setSearchTerm('');
-                                                }}
-                                            >
-                                                <div className="flex justify-between items-start">
-                                                    <div>
-                                                        <h4 className="font-medium text-slate-900">{vendor.name}</h4>
-                                                        <p className="text-sm text-slate-600">{vendor.code}</p>
-                                                        <p className="text-sm text-slate-500">{vendor.email}</p>
-                                                    </div>
-                                                    <Badge variant="outline">{vendor.code}</Badge>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
+                    {/* Supplier Info Card - 8 columns */}
+                    <Card className="lg:col-span-8">
+                        <CardHeader className="pb-2">
+                            <div className="flex items-center justify-between">
+                                <CardTitle className="text-lg">Supplier Details</CardTitle>
+                                {selectedSupplier && (
+                                    <Badge variant="outline" className="hidden sm:inline-flex">
+                                        {selectedSupplier.Supp_State}
+                                    </Badge>
                                 )}
-
-                                {purchaseOrder.vendor && (
-                                    <Card className="bg-blue-50 border-blue-200">
-                                        <CardContent className="p-4">
-                                            <div className="flex justify-between items-start">
-                                                <div className="space-y-1">
-                                                    <h4 className="font-semibold text-blue-900">{purchaseOrder.vendor.name}</h4>
-                                                    <p className="text-sm text-blue-700">{purchaseOrder.vendor.email}</p>
-                                                    <p className="text-sm text-blue-600">{purchaseOrder.vendor.phone}</p>
-                                                    <p className="text-sm text-blue-600">{purchaseOrder.vendor.address}</p>
-                                                </div>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    onClick={() => setPurchaseOrder(prev => ({ ...prev, vendor: null }))}
-                                                    className="text-blue-600 hover:text-blue-800"
-                                                >
-                                                    Change
-                                                </Button>
+                            </div>
+                        </CardHeader>
+                        <CardContent>
+                            {selectedSupplier ? (
+                                <div>
+                                    {/* Mobile layout - stacked */}
+                                    <div className="space-y-3 sm:hidden">
+                                        <div className="flex justify-between items-start pb-2 border-b">
+                                            <div>
+                                                <p className="text-sm text-muted-foreground">Company</p>
+                                                <p className="font-medium text-base">{selectedSupplier.name}</p>
                                             </div>
-                                        </CardContent>
-                                    </Card>
-                                )}
-                            </CardContent>
-                        </Card>
+                                            <Badge>{selectedSupplier.Supp_State}</Badge>
+                                        </div>
 
-                        {/* Order Details */}
-                        <Card className="shadow-sm hover:shadow-md transition-shadow">
-                            <CardHeader className="pb-3">
-                                <CardTitle className="flex items-center gap-2 text-lg">
-                                    <FileText className="h-5 w-5 text-blue-600" />
-                                    Order Details
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent className="space-y-4">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div className="space-y-2">
-                                        <div className="flex flex-col gap-3">
-                                            <Label htmlFor="date" className="px-1">
-                                                Subscription Date
-                                            </Label>
-                                            <div className="relative flex gap-2">
-                                                <Input
-                                                    id="date"
-                                                    value={value}
-                                                    placeholder="June 01, 2025"
-                                                    className="bg-background pr-10"
-                                                    onChange={(e) => {
-                                                        const date = new Date(e.target.value)
-                                                        setValue(e.target.value)
-                                                        if (isValidDate(date)) {
-                                                            setDate(date)
-                                                            setMonth(date)
-                                                        }
-                                                    }}
-                                                    onKeyDown={(e) => {
-                                                        if (e.key === "ArrowDown") {
-                                                            e.preventDefault()
-                                                            setOpen(true)
-                                                        }
-                                                    }}
-                                                />
-                                                <Popover open={open} onOpenChange={setOpen}>
-                                                    <PopoverTrigger asChild>
-                                                        <Button
-                                                            id="date-picker"
-                                                            variant="ghost"
-                                                            className="absolute top-1/2 right-2 size-6 -translate-y-1/2"
-                                                        >
-                                                            <CalendarIcon className="size-3.5" />
-                                                            <span className="sr-only">Select date</span>
-                                                        </Button>
-                                                    </PopoverTrigger>
-                                                    <PopoverContent
-                                                        className="w-auto overflow-hidden p-0"
-                                                        align="end"
-                                                        alignOffset={-8}
-                                                        sideOffset={10}
-                                                    >
-                                                        <Calendar
-                                                            mode="single"
-                                                            selected={date}
-                                                            captionLayout="dropdown"
-                                                            month={month}
-                                                            onMonthChange={setMonth}
-                                                            onSelect={(date) => {
-                                                                setDate(date)
-                                                                setValue(formatDate(date))
-                                                                setOpen(false)
-                                                            }}
-                                                        />
-                                                    </PopoverContent>
-                                                </Popover>
+                                        <div className="pb-2 border-b">
+                                            <p className="text-sm text-muted-foreground">Division</p>
+                                            <p>{selectedSupplier.division}</p>
+                                        </div>
+
+                                        <div className="grid grid-cols-1 gap-3 pb-2 border-b">
+                                            <div>
+                                                <p className="text-sm text-muted-foreground">CIN</p>
+                                                <p className="overflow-x-auto whitespace-nowrap text-sm">{selectedSupplier.CIN}</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-sm text-muted-foreground">GSTIN</p>
+                                                <p className="overflow-x-auto whitespace-nowrap text-sm">{selectedSupplier.GSTIN}</p>
                                             </div>
                                         </div>
 
-                                        <div className="flex flex-col gap-3">
-                                            <Label htmlFor="date" className="px-1">
-                                                Subscription Date
-                                            </Label>
-                                            <div className="relative flex gap-2">
-                                                <Input
-                                                    id="date"
-                                                    value={value}
-                                                    placeholder="June 01, 2025"
-                                                    className="bg-background pr-10"
-                                                    onChange={(e) => {
-                                                        const date = new Date(e.target.value)
-                                                        setValue(e.target.value)
-                                                        if (isValidDate(date)) {
-                                                            setDate(date)
-                                                            setMonth(date)
-                                                        }
-                                                    }}
-                                                    onKeyDown={(e) => {
-                                                        if (e.key === "ArrowDown") {
-                                                            e.preventDefault()
-                                                            setOpen(true)
-                                                        }
-                                                    }}
-                                                />
-                                                <Popover open={open} onOpenChange={setOpen}>
-                                                    <PopoverTrigger asChild>
-                                                        <Button
-                                                            id="date-picker"
-                                                            variant="ghost"
-                                                            className="absolute top-1/2 right-2 size-6 -translate-y-1/2"
-                                                        >
-                                                            <CalendarIcon className="size-3.5" />
-                                                            <span className="sr-only">Select date</span>
-                                                        </Button>
-                                                    </PopoverTrigger>
-                                                    <PopoverContent
-                                                        className="w-auto overflow-hidden p-0"
-                                                        align="end"
-                                                        alignOffset={-8}
-                                                        sideOffset={10}
-                                                    >
-                                                        <Calendar
-                                                            mode="single"
-                                                            selected={date}
-                                                            captionLayout="dropdown"
-                                                            month={month}
-                                                            onMonthChange={setMonth}
-                                                            onSelect={(date) => {
-                                                                setDate(date)
-                                                                setValue(formatDate(date))
-                                                                setOpen(false)
-                                                            }}
-                                                        />
-                                                    </PopoverContent>
-                                                </Popover>
+                                        <div className="grid grid-cols-2 gap-3 pb-2 border-b">
+                                            <div>
+                                                <p className="text-sm text-muted-foreground">Code</p>
+                                                <p>{selectedSupplier.Code}</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-sm text-muted-foreground">PAN</p>
+                                                <p>{selectedSupplier.PAN}</p>
                                             </div>
                                         </div>
 
-                                        <div className="space-y-2">
-                                            <Label htmlFor="paymentTerms">Payment Terms</Label>
-                                            <Select
-                                                value={purchaseOrder.paymentTerms}
-                                                onValueChange={(value) => setPurchaseOrder(prev => ({ ...prev, paymentTerms: value }))}
-                                            >
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder="Select payment terms" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="net-30">Net 30 Days</SelectItem>
-                                                    <SelectItem value="net-60">Net 60 Days</SelectItem>
-                                                    <SelectItem value="net-90">Net 90 Days</SelectItem>
-                                                    <SelectItem value="cod">Cash on Delivery</SelectItem>
-                                                    <SelectItem value="advance">Advance Payment</SelectItem>
-                                                </SelectContent>
-                                            </Select>
+                                        <div className="pb-2 border-b">
+                                            <p className="text-sm text-muted-foreground">Phone</p>
+                                            <p className="text-sm">{selectedSupplier.phone}</p>
                                         </div>
 
-                                        <div className="space-y-2">
-                                            <Label htmlFor="priority">Priority</Label>
-                                            <Select
-                                                value={purchaseOrder.priority}
-                                                onValueChange={(value) => setPurchaseOrder(prev => ({ ...prev, priority: value }))}
-                                            >
-                                                <SelectTrigger>
-                                                    <SelectValue />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="low">Low</SelectItem>
-                                                    <SelectItem value="medium">Medium</SelectItem>
-                                                    <SelectItem value="high">High</SelectItem>
-                                                    <SelectItem value="urgent">Urgent</SelectItem>
-                                                </SelectContent>
-                                            </Select>
+                                        <div>
+                                            <p className="text-sm text-muted-foreground">Address</p>
+                                            <p className="text-sm">{selectedSupplier.address}</p>
                                         </div>
                                     </div>
 
-                                    <div className="space-y-2">
-                                        <Label htmlFor="notes">Notes</Label>
-                                        <Textarea
-                                            id="notes"
-                                            placeholder="Add any additional notes or special instructions..."
-                                            value={purchaseOrder.notes}
-                                            onChange={(e) => setPurchaseOrder(prev => ({ ...prev, notes: e.target.value }))}
-                                            rows={3}
-                                        />
+                                    {/* Desktop layout - using grid */}
+                                    <div className="hidden sm:grid sm:grid-cols-2 sm:gap-4">
+                                        <div className="space-y-2 col-span-2">
+                                            <p className="text-sm text-muted-foreground">Company</p>
+                                            <p className="font-medium">{selectedSupplier.name}</p>
+                                        </div>
+
+                                        <div>
+                                            <p className="text-sm text-muted-foreground">Division</p>
+                                            <p>{selectedSupplier.division}</p>
+                                        </div>
+
+                                        <div>
+                                            <p className="text-sm text-muted-foreground">Code</p>
+                                            <p>{selectedSupplier.Code}</p>
+                                        </div>
+
+                                        <div>
+                                            <p className="text-sm text-muted-foreground">CIN</p>
+                                            <p>{selectedSupplier.CIN}</p>
+                                        </div>
+
+                                        <div>
+                                            <p className="text-sm text-muted-foreground">GSTIN</p>
+                                            <p>{selectedSupplier.GSTIN}</p>
+                                        </div>
+
+                                        <div>
+                                            <p className="text-sm text-muted-foreground">Phone</p>
+                                            <p>{selectedSupplier.phone}</p>
+                                        </div>
+
+                                        <div>
+                                            <p className="text-sm text-muted-foreground">PAN</p>
+                                            <p>{selectedSupplier.PAN}</p>
+                                        </div>
+
+                                        <div className="col-span-2">
+                                            <p className="text-sm text-muted-foreground">Address</p>
+                                            <p className="text-sm">{selectedSupplier.address}</p>
+                                        </div>
                                     </div>
                                 </div>
-                            </CardContent>
-                        </Card>
+                            ) : (
+                                <div className="flex flex-col items-center justify-center h-[120px] text-center p-4">
+                                    <Package className="h-10 w-10 text-muted-foreground mb-3" />
+                                    <p className="text-muted-foreground text-sm">Select a supplier to see details</p>
+                                    <p className="text-xs text-muted-foreground mt-1">All supplier information will appear here</p>
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
 
-                        {/* Items */}
-                        <Card className="shadow-sm hover:shadow-md transition-shadow">
+                    {/* Order Summary Card - 4 columns */}
+                    <div className="lg:col-span-4 lg:sticky lg:top-6 space-y-6">
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Order Summary</CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                <div className="flex justify-between">
+                                    <span className="text-muted-foreground">Subtotal:</span>
+                                    <span>${calculateSubtotal().toFixed(2)}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-muted-foreground">Tax ({watchTaxRate}%):</span>
+                                    <span>${calculateTaxAmount().toFixed(2)}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-muted-foreground">Shipping:</span>
+                                    <span>${parseFloat(watchShippingCost.toString() || "0").toFixed(2)}</span>
+                                </div>
+                                <Separator />
+                                <div className="flex justify-between font-medium text-lg">
+                                    <span>Total:</span>
+                                    <span>${calculateTotal().toFixed(2)}</span>
+                                </div>
+                            </CardContent>
+                            <CardFooter>
+                                <Button
+                                    className="w-full"
+                                    size="lg"
+                                    disabled={isSaving}
+                                    type="submit"
+                                >
+                                    {isSaving ? "Processing..." : "Create Purchase Order"}
+                                </Button>
+                            </CardFooter>
+                        </Card>
+                    </div>
+
+
+
+                    {/* --- SECOND ROW --- */}
+
+                    {/* Main Content Area with Tabs - 8 columns */}
+                    <Card className="lg:col-span-8">
+                        <Tabs value={activeTab} onValueChange={setActiveTab}>
                             <CardHeader className="pb-3">
-                                <CardTitle className="flex items-center justify-between">
-                                    <div className="flex items-center gap-2">
-                                        <Package className="h-5 w-5 text-blue-600" />
-                                        Items ({purchaseOrder.items.length})
-                                    </div>
-                                    <Button onClick={addItem} size="sm" className="bg-blue-600 hover:bg-blue-700">
-                                        <Plus className="h-4 w-4 mr-1" />
-                                        Add Item
-                                    </Button>
-                                </CardTitle>
+                                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                                    <CardTitle>Order Details</CardTitle>
+                                    <TabsList className="w-full sm:w-auto">
+                                        <TabsTrigger value="products">Products</TabsTrigger>
+                                        <TabsTrigger value="payment">Payment</TabsTrigger>
+                                        <TabsTrigger value="notes">Notes</TabsTrigger>
+                                    </TabsList>
+                                </div>
                             </CardHeader>
                             <CardContent>
-                                {purchaseOrder.items.length === 0 ? (
-                                    <div className="text-center py-12 text-slate-500">
-                                        <Package className="h-12 w-12 mx-auto mb-4 text-slate-300" />
-                                        <p className="text-lg font-medium mb-2">No items added yet</p>
-                                        <p className="text-sm">Click &quot;Add Item&quot; to start building your purchase order</p>
+                                <TabsContent value="products" className="space-y-4">
+                                    {/* Product Search */}
+                                    <div className="flex items-center space-x-2">
+                                        <div className="relative flex-grow">
+                                            <Search className="absolute left-2.5 top-3 h-4 w-4 text-muted-foreground" />
+                                            <Input
+                                                placeholder="Search products..."
+                                                value={productSearchQuery}
+                                                onChange={(e) => setProductSearchQuery(e.target.value)}
+                                                className="pl-8 h-10"
+                                            />
+                                        </div>
                                     </div>
-                                ) : (
-                                    <div className="space-y-4">
-                                        {purchaseOrder.items.map((item, index) => (
-                                            <Card key={item.id} className="border-slate-200">
-                                                <CardContent className="p-4">
-                                                    <div className="flex justify-between items-start mb-4">
-                                                        <h4 className="font-medium text-slate-900">Item #{index + 1}</h4>
+
+                                    {/* Product List */}
+                                    <ScrollArea className="h-[250px] sm:h-[300px] border rounded-md p-2 sm:p-4">
+                                        {isLoadingProducts ? (
+                                            <div className="flex justify-center items-center h-full">
+                                                <p>Loading products...</p>
+                                            </div>
+                                        ) : products.length > 0 ? (
+                                            <div className="grid grid-cols-1 gap-3">
+                                                {products.map(product => (
+                                                    <div
+                                                        key={product.id}
+                                                        className="border rounded-md p-3 flex justify-between items-center hover:bg-muted/50 transition-colors"
+                                                    >
+                                                        <div>
+                                                            <p className="font-medium">{product.name}</p>
+                                                            <div className="flex flex-wrap gap-2 items-center text-sm mt-1">
+                                                                <span className="text-muted-foreground">{product.sku}</span>
+                                                                <Badge variant="outline">{product.category}</Badge>
+                                                            </div>
+                                                            <p className="font-medium mt-2">${product.costPrice.toFixed(2)}</p>
+                                                        </div>
                                                         <Button
-                                                            variant="ghost"
+                                                            type="button"
+                                                            variant="secondary"
                                                             size="sm"
-                                                            onClick={() => removeItem(item.id)}
-                                                            className="text-red-600 hover:text-red-800 hover:bg-red-50"
+                                                            className="h-9 px-3"
+                                                            onClick={() => addProductToItems(product)}
                                                         >
-                                                            <Trash2 className="h-4 w-4" />
+                                                            <Plus className="h-4 w-4 mr-1" /> Add
                                                         </Button>
                                                     </div>
-
-                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                                                        <div className="space-y-2">
-                                                            <Label htmlFor={`product-${item.id}`}>Product Name</Label>
-                                                            <Input
-                                                                id={`product-${item.id}`}
-                                                                placeholder="Enter product name"
-                                                                value={item.productName}
-                                                                onChange={(e) => updateItem(item.id, 'productName', e.target.value)}
-                                                            />
-                                                        </div>
-                                                        <div className="space-y-2">
-                                                            <Label htmlFor={`description-${item.id}`}>Description</Label>
-                                                            <Input
-                                                                id={`description-${item.id}`}
-                                                                placeholder="Product description"
-                                                                value={item.description}
-                                                                onChange={(e) => updateItem(item.id, 'description', e.target.value)}
-                                                            />
-                                                        </div>
-                                                    </div>
-
-                                                    <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                                                        <div className="space-y-2">
-                                                            <Label htmlFor={`quantity-${item.id}`}>Quantity</Label>
-                                                            <Input
-                                                                id={`quantity-${item.id}`}
-                                                                type="number"
-                                                                min="1"
-                                                                value={item.quantity}
-                                                                onChange={(e) => updateItem(item.id, 'quantity', parseInt(e.target.value) || 1)}
-                                                            />
-                                                        </div>
-                                                        <div className="space-y-2">
-                                                            <Label htmlFor={`unitPrice-${item.id}`}>Unit Price</Label>
-                                                            <Input
-                                                                id={`unitPrice-${item.id}`}
-                                                                type="number"
-                                                                min="0"
-                                                                step="0.01"
-                                                                value={item.unitPrice}
-                                                                onChange={(e) => updateItem(item.id, 'unitPrice', parseFloat(e.target.value) || 0)}
-                                                            />
-                                                        </div>
-                                                        <div className="space-y-2">
-                                                            <Label htmlFor={`discount-${item.id}`}>Discount (%)</Label>
-                                                            <Input
-                                                                id={`discount-${item.id}`}
-                                                                type="number"
-                                                                min="0"
-                                                                max="100"
-                                                                value={item.discount}
-                                                                onChange={(e) => updateItem(item.id, 'discount', parseFloat(e.target.value) || 0)}
-                                                            />
-                                                        </div>
-                                                        <div className="space-y-2">
-                                                            <Label htmlFor={`taxRate-${item.id}`}>Tax Rate (%)</Label>
-                                                            <Input
-                                                                id={`taxRate-${item.id}`}
-                                                                type="number"
-                                                                min="0"
-                                                                value={item.taxRate}
-                                                                onChange={(e) => updateItem(item.id, 'taxRate', parseFloat(e.target.value) || 0)}
-                                                            />
-                                                        </div>
-                                                        <div className="space-y-2">
-                                                            <Label>Total</Label>
-                                                            <div className="h-10 px-3 py-2 bg-slate-50 border rounded-md flex items-center font-medium text-slate-900">
-                                                                ${item.total.toFixed(2)}
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </CardContent>
-                                            </Card>
-                                        ))}
-                                    </div>
-                                )}
-                            </CardContent>
-                        </Card>
-                    </div>
-
-                    {/* Right Column - Summary */}
-                    <div className="space-y-6">
-                        <div className='sticky space-y-6 top-6'>
-                            {/* Order Summary */}
-                            <Card className="shadow-sm hover:shadow-md transition-shadow">
-                                <CardHeader className="pb-3">
-                                    <CardTitle className="flex items-center gap-2 text-lg">
-                                        <Calculator className="h-5 w-5 text-blue-600" />
-                                        Order Summary
-                                    </CardTitle>
-                                </CardHeader>
-                                <CardContent className="space-y-4">
-                                    <div className="space-y-3">
-                                        <div className="flex justify-between text-sm">
-                                            <span className="text-slate-600">Subtotal:</span>
-                                            <span className="font-medium">${purchaseOrder.subtotal.toFixed(2)}</span>
-                                        </div>
-                                        <div className="flex justify-between text-sm">
-                                            <span className="text-slate-600">Discount:</span>
-                                            <span className="font-medium text-green-600">-${purchaseOrder.totalDiscount.toFixed(2)}</span>
-                                        </div>
-                                        <div className="flex justify-between text-sm">
-                                            <span className="text-slate-600">Tax:</span>
-                                            <span className="font-medium">${purchaseOrder.totalTax.toFixed(2)}</span>
-                                        </div>
-                                        <Separator />
-                                        <div className="flex justify-between text-lg font-bold">
-                                            <span>Grand Total:</span>
-                                            <span className="text-blue-600">${purchaseOrder.grandTotal.toFixed(2)}</span>
-                                        </div>
-                                    </div>
-
-                                    <div className="space-y-2 pt-4">
-                                        <Button
-                                            onClick={handleSave}
-                                            variant="outline"
-                                            className="w-full"
-                                        >
-                                            <Save className="h-4 w-4 mr-2" />
-                                            Save Draft
-                                        </Button>
-                                        <Button
-                                            onClick={handleSubmit}
-                                            className="w-full bg-blue-600 hover:bg-blue-700"
-                                        >
-                                            <Send className="h-4 w-4 mr-2" />
-                                            Submit for Approval
-                                        </Button>
-                                    </div>
-                                </CardContent>
-                            </Card>
-
-                            {/* Quick Stats */}
-                            <Card className="shadow-sm">
-                                <CardHeader className="pb-3">
-                                    <CardTitle className="text-lg">Quick Stats</CardTitle>
-                                </CardHeader>
-                                <CardContent className="space-y-4">
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="text-center p-3 bg-blue-50 rounded-lg">
-                                            <div className="text-2xl font-bold text-blue-600">{purchaseOrder.items.length}</div>
-                                            <div className="text-sm text-blue-800">Items</div>
-                                        </div>
-                                        <div className="text-center p-3 bg-green-50 rounded-lg">
-                                            <div className="text-2xl font-bold text-green-600">
-                                                {purchaseOrder.items.reduce((sum, item) => sum + item.quantity, 0)}
+                                                ))}
                                             </div>
-                                            <div className="text-sm text-green-800">Total Qty</div>
+                                        ) : (
+                                            <div className="flex justify-center items-center h-full">
+                                                <p className="text-muted-foreground">{productSearchQuery ? "No products match your search" : "No products available"}</p>
+                                            </div>
+                                        )}
+                                    </ScrollArea>
+
+                                    {/* Selected Items List */}
+                                    <ScrollArea className="border rounded-md">
+                                        <div className="bg-muted px-3 py-2 rounded-t-md flex items-center">
+                                            <h3 className="font-medium">Selected Items</h3>
+                                        </div>
+                                        <div>
+                                            {watchItems && watchItems.length > 0 ? (
+                                                <div>
+                                                    <div className="hidden sm:grid grid-cols-12 text-sm font-medium border-b p-3">
+                                                        <div className="col-span-4">Product</div>
+                                                        <div className="col-span-2">Unit Price</div>
+                                                        <div className="col-span-2">Quantity</div>
+                                                        <div className="col-span-2">Discount %</div>
+                                                        <div className="col-span-2 text-right">Total</div>
+                                                    </div>
+
+                                                    <ScrollArea className="max-h-[250px]">
+                                                        {watchItems.map((item) => {
+                                                            const product = products.find(p => p.id === item.productId);
+                                                            return product ? (
+                                                                <div key={item.productId} className="p-3 border-b last:border-0">
+                                                                    {/* Mobile view (stacked) */}
+                                                                    <div className="sm:hidden">
+                                                                        <div className="flex justify-between mb-2">
+                                                                            <div>
+                                                                                <p className="font-medium">{product.name}</p>
+                                                                                <p className="text-xs text-muted-foreground">{product.sku}</p>
+                                                                            </div>
+                                                                            <Button
+                                                                                type="button"
+                                                                                variant="ghost"
+                                                                                size="sm"
+                                                                                className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
+                                                                                onClick={() => removeItem(item.productId)}
+                                                                            >
+                                                                                <Trash2 className="h-4 w-4" />
+                                                                            </Button>
+                                                                        </div>
+                                                                        <div className="grid grid-cols-3 gap-2 mb-2">
+                                                                            <div>
+                                                                                <p className="text-xs text-muted-foreground">Price</p>
+                                                                                <p>${item.costPrice.toFixed(2)}</p>
+                                                                            </div>
+                                                                            <div>
+                                                                                <p className="text-xs text-muted-foreground">Quantity</p>
+                                                                                <Input
+                                                                                    type="number"
+                                                                                    min="1"
+                                                                                    value={item.quantity}
+                                                                                    onChange={(e) => updateItemQuantity(item.productId, parseInt(e.target.value) || 1)}
+                                                                                    className="h-8 w-full"
+                                                                                />
+                                                                            </div>
+                                                                            <div>
+                                                                                <p className="text-xs text-muted-foreground">Discount</p>
+                                                                                <Input
+                                                                                    type="number"
+                                                                                    min="0"
+                                                                                    max="100"
+                                                                                    value={item.discount}
+                                                                                    onChange={(e) => updateItemDiscount(item.productId, parseInt(e.target.value) || 0)}
+                                                                                    className="h-8 w-full"
+                                                                                />
+                                                                            </div>
+                                                                        </div>
+                                                                        <div className="flex justify-end">
+                                                                            <span className="font-medium">Total: ${item.total.toFixed(2)}</span>
+                                                                        </div>
+                                                                    </div>
+
+                                                                    {/* Desktop view (grid) */}
+                                                                    <div className="hidden sm:grid sm:grid-cols-12 sm:items-center">
+                                                                        <div className="col-span-4">
+                                                                            <p className="font-medium">{product.name}</p>
+                                                                            <p className="text-xs text-muted-foreground">{product.sku}</p>
+                                                                        </div>
+                                                                        <div className="col-span-2">
+                                                                            ${item.costPrice.toFixed(2)}
+                                                                        </div>
+                                                                        <div className="col-span-2">
+                                                                            <Input
+                                                                                type="number"
+                                                                                min="1"
+                                                                                value={item.quantity}
+                                                                                onChange={(e) => updateItemQuantity(item.productId, parseInt(e.target.value) || 1)}
+                                                                                className="w-16 h-8"
+                                                                            />
+                                                                        </div>
+                                                                        <div className="col-span-2">
+                                                                            <Input
+                                                                                type="number"
+                                                                                min="0"
+                                                                                max="100"
+                                                                                value={item.discount}
+                                                                                onChange={(e) => updateItemDiscount(item.productId, parseInt(e.target.value) || 0)}
+                                                                                className="w-16 h-8"
+                                                                            />
+                                                                        </div>
+                                                                        <div className="col-span-2 flex items-center justify-end space-x-2">
+                                                                            <span className="font-medium">${item.total.toFixed(2)}</span>
+                                                                            <Button
+                                                                                type="button"
+                                                                                variant="ghost"
+                                                                                size="sm"
+                                                                                className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
+                                                                                onClick={() => removeItem(item.productId)}
+                                                                            >
+                                                                                <Trash2 className="h-4 w-4" />
+                                                                            </Button>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            ) : null;
+                                                        })}
+                                                    </ScrollArea>
+                                                </div>
+                                            ) : (
+                                                <div className="py-8 text-center">
+                                                    <p className="text-muted-foreground">No items added yet</p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </ScrollArea>
+                                </TabsContent>
+
+                                <TabsContent value="payment" className="space-y-4">
+                                    <div className="grid grid-cols-1 gap-4">
+                                        <FormField label="Payment Method" error={errors.paymentMethod?.message}>
+                                            <Select
+                                                defaultValue={getValues("paymentMethod")}
+                                                onValueChange={(value) => setValue("paymentMethod", value)}
+                                            >
+                                                <SelectTrigger className="h-10">
+                                                    <SelectValue placeholder="Select payment method" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="cash">Cash</SelectItem>
+                                                    <SelectItem value="credit_card">Credit Card</SelectItem>
+                                                    <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
+                                                    <SelectItem value="check">Check</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </FormField>
+
+                                        <FormField label="Payment Status" error={errors.paymentStatus?.message}>
+                                            <Select
+                                                defaultValue={getValues("paymentStatus")}
+                                                onValueChange={(value) => setValue("paymentStatus", value)}
+                                            >
+                                                <SelectTrigger className="h-10">
+                                                    <SelectValue placeholder="Select payment status" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="paid">Paid</SelectItem>
+                                                    <SelectItem value="pending">Pending</SelectItem>
+                                                    <SelectItem value="partial">Partial</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </FormField>
+
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                            <FormField label="Tax Rate (%)" error={errors.taxRate?.message}>
+                                                <Input
+                                                    type="number"
+                                                    min="0"
+                                                    max="100"
+                                                    step="0.01"
+                                                    placeholder="0"
+                                                    className="h-10"
+                                                    {...register("taxRate", { valueAsNumber: true })}
+                                                />
+                                            </FormField>
+
+                                            <FormField label="Shipping Cost" error={errors.shippingCost?.message}>
+                                                <Input
+                                                    type="number"
+                                                    min="0"
+                                                    step="0.01"
+                                                    placeholder="0.00"
+                                                    className="h-10"
+                                                    {...register("shippingCost", { valueAsNumber: true })}
+                                                />
+                                            </FormField>
                                         </div>
                                     </div>
+                                </TabsContent>
 
-                                    {purchaseOrder.vendor && (
-                                        <div className="p-3 bg-slate-50 rounded-lg">
-                                            <div className="text-sm font-medium text-slate-900 mb-1">Vendor</div>
-                                            <div className="text-sm text-slate-600">{purchaseOrder.vendor.name}</div>
-                                        </div>
-                                    )}
-                                </CardContent>
-                            </Card>
-                        </div>
-                    </div>
+                                <TabsContent value="notes">
+                                    <FormField label="Notes & Additional Information" error={errors.notes?.message}>
+                                        <textarea
+                                            className="w-full min-h-[150px] sm:min-h-[200px] p-3 border rounded-md"
+                                            placeholder="Enter any notes or special instructions..."
+                                            {...register("notes")}
+                                        ></textarea>
+                                    </FormField>
+                                </TabsContent>
+                            </CardContent>
+                        </Tabs>
+                    </Card>
+
+
                 </div>
-            </div>
+            </form>
         </div>
     );
 }

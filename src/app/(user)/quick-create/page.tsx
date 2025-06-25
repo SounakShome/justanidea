@@ -9,7 +9,7 @@ export async function generateMetadata() {
 }
 
 export default async function Page() {
-
+    
     return (
         <div className="px-6 py-3">
             <QuickCreate />

@@ -67,24 +67,13 @@ model Customer {
   updatedAt    DateTime @updatedAt
 }
 
-model Category {
-  id          String     @id @default(cuid())
-  name        String
-  description String
-  products    Products[]
-}
-
 model Products {
-  id          String     @id @default(cuid())
-  name        String
-  description String
-  categoryId  String
-  brand       String
-  HSN         Int
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
-  category    Category   @relation(fields: [categoryId], references: [id])
-  variants    Variants[]
+  id        String     @id @default(cuid())
+  name      String
+  HSN       Int
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  variants  Variants[]
 
   @@index([name])
 }
@@ -156,7 +145,6 @@ model PurchaseOrder {
   invoiceNo   String         @unique
   Date        DateTime
   supplierId  String
-  date        DateTime       @default(now())
   status      PurchaseStatus @default(PENDING)
   notes       String?
   items       PurchaseItem[]

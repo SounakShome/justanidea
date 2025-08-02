@@ -1,9 +1,17 @@
+import { prisma } from '@/lib/prisma';
+import { NextResponse } from 'next/server';
+
 export async function GET(request: Request, { params }: { params: { id: string } }) {
-    const id = await params.id;
+    const { id } = await params;
     try {
-        console.log(`Fetching items for ID: ${id}`);
-        return new Response(JSON.stringify(id), {
-            headers: { 'Content-Type': 'application/json' },
+        const data = await prisma.variants.findMany({
+            where: { supplierId: id },
+            include: {
+                product: true,
+            },
+        });
+        return new NextResponse(JSON.stringify(data), {
+            status: 200,
         });
     } catch (error) {
         let errorMessage = 'An unknown error occurred';

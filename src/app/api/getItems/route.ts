@@ -14,7 +14,11 @@ export async function POST(req: NextRequest){
 
 export async function GET() {
     try {
-        const items = await prisma.products.findMany();
+        const items = await prisma.products.findMany({
+            include: {
+                variants: true,
+            },
+        });
         return NextResponse.json(items);
     } catch (error) {
         return NextResponse.json({ message: error });

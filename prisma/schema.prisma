@@ -8,17 +8,6 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum Role {
-  SALESMAN
-  ADMIN
-}
-
-enum PurchaseStatus {
-  PENDING
-  RECEIVED
-  CANCELLED
-}
-
 model Token {
   email      String   @unique
   code       String   @unique
@@ -39,60 +28,60 @@ model Company {
 }
 
 model User {
-  id                    String           @id @default(cuid())
-  username              String
-  email                 String           @unique
-  password              String
-  role                  Role             @default(SALESMAN)
-  verified              Boolean          @default(false)
-  onboarded             Boolean          @default(false)
-  createdAt             DateTime         @default(now())
-  updatedAt             DateTime
-  companyId             String?
-  company               Company?         @relation(fields: [companyId], references: [id])
-  logs                  Inventory_logs[]
-  createdPurchaseOrders PurchaseOrder[]
+  id        String           @id @default(cuid())
+  username  String
+  email     String           @unique
+  password  String
+  verified  Boolean          @default(false)
+  onboarded Boolean          @default(false)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime
+  companyId String?
+  role      Role             @default(SALESMAN)
+  logs      Inventory_logs[]
+  company   Company?         @relation(fields: [companyId], references: [id])
 }
 
 model Customer {
-  id           String   @id @default(cuid())
   name         String
   phone        String   @unique
   address      String
-  GSTIN        String
-  State_Name   String
-  Code         Int
-  orderHistory Order[]
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+  id           String   @id @default(cuid())
+  Code         Int
+  GSTIN        String
+  State_Name   String
+  orderHistory Order[]
 }
 
 model Products {
-  id        String     @id @default(cuid())
   name      String
-  HSN       Int
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
+  id        String     @id @default(cuid())
+  HSN       Int
   variants  Variants[]
 
   @@index([name])
 }
 
 model Variants {
-  id            String           @id @default(cuid())
-  name          String
+  productId     String
   size          String
   price         Float
   stock         Int
-  productId     String
   supplierId    String?
-  orderItems    order_items[]
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  id            String           @id @default(cuid())
+  name          String
+  sellingPrice  Float            @default(0)
   logs          Inventory_logs[]
   purchaseItems PurchaseItem[]
   product       Products         @relation(fields: [productId], references: [id])
   supplier      Supplier?        @relation(fields: [supplierId], references: [id])
-  createdAt     DateTime         @default(now())
-  updatedAt     DateTime         @updatedAt
+  orderItems    order_items[]
 
   @@unique([productId, size, name])
   @@index([name])
@@ -104,6 +93,7 @@ model Order {
   order_date   DateTime      @default(now())
   total_amount Float
   status       String        @default("pending")
+  notes        String?
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
   customer     Customer      @relation(fields: [customerId], references: [id])
@@ -111,11 +101,11 @@ model Order {
 }
 
 model order_items {
-  id        String   @id @default(cuid())
   orderId   String
   variantId String
   quantity  Int
   price     Float
+  id        String   @id @default(cuid())
   order     Order    @relation(fields: [orderId], references: [id])
   variant   Variants @relation(fields: [variantId], references: [id])
 
@@ -125,60 +115,74 @@ model order_items {
 }
 
 model Supplier {
-  id         String          @id @default(cuid())
   name       String
-  division   String
   phone      String
   address    String
+  createdAt  DateTime        @default(now())
+  id         String          @id @default(cuid())
   CIN        String
+  Code       Int
   GSTIN      String          @unique
   PAN        String          @unique
   Supp_State String
-  Code       Int
-  createdAt  DateTime        @default(now())
+  division   String
   purchases  PurchaseOrder[]
   variants   Variants[]
 }
 
 model PurchaseOrder {
-  id          String         @id @default(cuid())
-  invoiceNo   String         @unique
-  Date        DateTime
-  supplierId  String
-  status      PurchaseStatus @default(PENDING)
-  notes       String?
-  items       PurchaseItem[]
-  createdById String
-  cartonNo    String
-  supplier    Supplier       @relation(fields: [supplierId], references: [id])
-  createdBy   User           @relation(fields: [createdById], references: [id])
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
+  id            String         @id @default(cuid())
+  supplierId    String
+  status        PurchaseStatus @default(PENDING)
+  notes         String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  Date          DateTime
+  invoiceNo     String         @unique
+  cgst          Float?
+  discount      Float
+  igst          Float?
+  sgst          Float?
+  subtotal      Float
+  taxableAmount Float
+  totalAmount   Float
+  items         PurchaseItem[]
+  supplier      Supplier       @relation(fields: [supplierId], references: [id])
 }
 
 model PurchaseItem {
-  id          String        @id @default(cuid())
-  purchaseId  String        @unique
-  variantId   String
-  quantity    Int
-  qtyReceived Int
-  unitPrice   Float
-  discount    Float
-  totalPrice  Float
-  purchase    PurchaseOrder @relation(fields: [purchaseId], references: [id])
-  variant     Variants      @relation(fields: [variantId], references: [id])
+  id         String        @id @default(cuid())
+  purchaseId String
+  variantId  String
+  quantity   Int
+  unitPrice  Float
+  discount   Float
+  totalPrice Float
+  purchase   PurchaseOrder @relation(fields: [purchaseId], references: [id])
+  variant    Variants      @relation(fields: [variantId], references: [id])
 }
 
 model Inventory_logs {
-  id          String   @id @default(cuid())
   variantId   String
   change      Int
   reason      String
   createdById String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  variant     Variants @relation(fields: [variantId], references: [id])
+  id          String   @id @default(cuid())
   creatredBy  User     @relation(fields: [createdById], references: [id])
+  variant     Variants @relation(fields: [variantId], references: [id])
 
   @@index([variantId])
+}
+
+enum Role {
+  SALESMAN
+  ADMIN
+}
+
+enum PurchaseStatus {
+  PENDING
+  RECEIVED
+  CANCELLED
 }

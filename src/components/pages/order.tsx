@@ -1,7 +1,14 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
-import { SiteHeader } from "@/components/site-header"
+import { useState, useEffect } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import { Separator } from "@/components/ui/separator";
+import { SiteHeader } from "@/components/site-header";
+import { ChevronDown, ChevronUp, Plus, Search, Calendar, DollarSign, Package, User, RefreshCw } from "lucide-react";
 
 interface OrderItem {
   product: string;
@@ -19,598 +26,362 @@ interface Order {
 }
 
 export default function OrdersPage() {
-  const [activeTab, setActiveTab] = useState<'pending' | 'review' | 'approved'>('pending');
-  // Track which orders are open using their IDs
-  const [openOrderIds, setOpenOrderIds] = useState<Set<string>>(new Set());
-  // Store available quantities for pending orders
-  const [availableQtys, setAvailableQtys] = useState<Record<string, Record<string, number>>>({});
-  // State for dropdown menu on mobile
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  // Ref for dropdown to handle click outside
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsDropdownOpen(false);
+  // Fetch orders data
+  const fetchOrders = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Replace this with your actual API endpoint
+      const response = await fetch('/api/orders');
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch orders');
       }
+      
+      const data = await response.json();
+      setOrders(data);
+    } catch (err) {
+      console.error('Error fetching orders:', err);
+      setError(err instanceof Error ? err.message : 'Failed to fetch orders');
+      
+      // Fallback to mock data in case of error
+      setOrders([
+        {
+          id: '001',
+          customerName: 'John Doe',
+          date: '2023-11-15',
+          amount: 125.99,
+          status: 'pending',
+          items: [
+            { product: 'Product A', requestedQty: 3, availableQty: 5 },
+            { product: 'Product B', requestedQty: 2, availableQty: 1 }
+          ]
+        },
+        {
+          id: '002',
+          customerName: 'Jane Smith',
+          date: '2023-11-14',
+          amount: 75.50,
+          status: 'pending',
+          items: [
+            { product: 'Product C', requestedQty: 1, availableQty: 7 }
+          ]
+        },
+        {
+          id: '003',
+          customerName: 'Robert Johnson',
+          date: '2023-11-13',
+          amount: 249.99,
+          status: 'review',
+          items: [
+            { product: 'Product D', requestedQty: 2, availableQty: 2 },
+            { product: 'Product E', requestedQty: 1, availableQty: 1 },
+            { product: 'Product F', requestedQty: 3, availableQty: 3 }
+          ]
+        },
+        {
+          id: '004',
+          customerName: 'Emily Davis',
+          date: '2023-11-12',
+          amount: 199.99,
+          status: 'review',
+          items: [
+            { product: 'Product G', requestedQty: 4, availableQty: 4 }
+          ]
+        },
+        {
+          id: '005',
+          customerName: 'Michael Wilson',
+          date: '2023-11-10',
+          amount: 349.75,
+          status: 'approved',
+          items: [
+            { product: 'Product H', requestedQty: 2, availableQty: 2 },
+            { product: 'Product I', requestedQty: 1, availableQty: 1 }
+          ]
+        },
+        {
+          id: '006',
+          customerName: 'Sarah Brown',
+          date: '2023-11-09',
+          amount: 89.99,
+          status: 'approved',
+          items: [
+            { product: 'Product J', requestedQty: 1, availableQty: 1 }
+          ]
+        },
+      ]);
+    } finally {
+      setLoading(false);
     }
+  };
 
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
+  useEffect(() => {
+    fetchOrders();
   }, []);
 
-  // Mock data - replace with actual data fetching in a real app
-  const [orders, setOrders] = useState<Order[]>([
-    {
-      id: '001',
-      customerName: 'John Doe',
-      date: '2023-11-15',
-      amount: 125.99,
-      status: 'pending',
-      items: [
-        { product: 'Product A', requestedQty: 3, availableQty: 5 },
-        { product: 'Product B', requestedQty: 2, availableQty: 1 }
-      ]
-    },
-    {
-      id: '002',
-      customerName: 'Jane Smith',
-      date: '2023-11-14',
-      amount: 75.50,
-      status: 'pending',
-      items: [
-        { product: 'Product C', requestedQty: 1, availableQty: 7 }
-      ]
-    },
-    {
-      id: '003',
-      customerName: 'Robert Johnson',
-      date: '2023-11-13',
-      amount: 249.99,
-      status: 'review',
-      items: [
-        { product: 'Product D', requestedQty: 2, availableQty: 2 },
-        { product: 'Product E', requestedQty: 1, availableQty: 1 },
-        { product: 'Product F', requestedQty: 3, availableQty: 3 }
-      ]
-    },
-    {
-      id: '004',
-      customerName: 'Emily Davis',
-      date: '2023-11-12',
-      amount: 199.99,
-      status: 'review',
-      items: [
-        { product: 'Product G', requestedQty: 4, availableQty: 4 }
-      ]
-    },
-    {
-      id: '005',
-      customerName: 'Michael Wilson',
-      date: '2023-11-10',
-      amount: 349.75,
-      status: 'approved',
-      items: [
-        { product: 'Product H', requestedQty: 2, availableQty: 2 },
-        { product: 'Product I', requestedQty: 1, availableQty: 1 }
-      ]
-    },
-    {
-      id: '006',
-      customerName: 'Sarah Brown',
-      date: '2023-11-09',
-      amount: 89.99,
-      status: 'approved',
-      items: [
-        { product: 'Product J', requestedQty: 1, availableQty: 1 }
-      ]
-    },
-  ]);
+  const filteredOrders = orders.filter(order =>
+    order.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    order.id.includes(searchQuery)
+  );
 
-  const pendingOrders = orders.filter(order => order.status === 'pending');
-  const reviewOrders = orders.filter(order => order.status === 'review');
-  const approvedOrders = orders.filter(order => order.status === 'approved');
+  const pendingOrders = filteredOrders.filter(order => order.status === 'pending');
+  const reviewOrders = filteredOrders.filter(order => order.status === 'review');
+  const approvedOrders = filteredOrders.filter(order => order.status === 'approved');
 
-  // Toggle open/close state for a specific order
-  const toggleOrderOpen = (orderId: string) => {
-    const newOpenOrderIds = new Set(openOrderIds);
-    if (newOpenOrderIds.has(orderId)) {
-      newOpenOrderIds.delete(orderId);
+  const toggleOrderExpanded = (orderId: string) => {
+    const newExpanded = new Set(expandedOrders);
+    if (newExpanded.has(orderId)) {
+      newExpanded.delete(orderId);
     } else {
-      newOpenOrderIds.add(orderId);
+      newExpanded.add(orderId);
     }
-    setOpenOrderIds(newOpenOrderIds);
+    setExpandedOrders(newExpanded);
   };
 
-  // Check if a specific order is open
-  const isOrderOpen = (orderId: string) => {
-    return openOrderIds.has(orderId);
-  };
-
-  // Update available quantity for a pending order item
-  const updateAvailableQty = (orderId: string, product: string, qty: number) => {
-    setAvailableQtys(prev => ({
-      ...prev,
-      [orderId]: {
-        ...(prev[orderId] || {}),
-        [product]: qty
-      }
-    }));
-  };
-
-  // Get available quantity for a pending order item
-  const getAvailableQty = (orderId: string, product: string, defaultQty?: number) => {
-    return availableQtys[orderId]?.[product] !== undefined
-      ? availableQtys[orderId][product]
-      : defaultQty;
-  };
-
-  // Toggle dropdown menu
-  const toggleDropdown = () => {
-    setIsDropdownOpen(!isDropdownOpen);
-  };
-
-  // Set active tab and close dropdown for mobile
-  const handleTabChange = (tab: 'pending' | 'review' | 'approved') => {
-    setActiveTab(tab);
-    setIsDropdownOpen(false);
-  };
-
-  // Get tab label with count
-  const getTabLabel = (tab: 'pending' | 'review' | 'approved') => {
-    switch (tab) {
-      case 'pending':
-        return `Pending (${pendingOrders.length})`;
-      case 'review':
-        return `Under Review (${reviewOrders.length})`;
-      case 'approved':
-        return `Approved (${approvedOrders.length})`;
-    }
-  };
-
-  // Render order status badge based on status
-  const renderStatusBadge = (status: 'pending' | 'review' | 'approved') => {
+  const getStatusBadge = (status: Order['status']) => {
     switch (status) {
       case 'pending':
-        return <span className="px-2 py-1 bg-amber-100 text-amber-800 text-xs rounded-full whitespace-nowrap">Pending</span>;
+        return <Badge variant="outline" className="border-yellow-500 text-yellow-700 bg-yellow-50">Pending</Badge>;
       case 'review':
-        return <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full whitespace-nowrap">Review</span>;
+        return <Badge variant="outline" className="border-blue-500 text-blue-700 bg-blue-50">Under Review</Badge>;
       case 'approved':
-        return <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full whitespace-nowrap">Approved</span>;
-      default:
-        return null;
+        return <Badge variant="outline" className="border-green-500 text-green-700 bg-green-50">Approved</Badge>;
     }
   };
 
-  // Render order items as cards on mobile and table on larger screens
-  const renderOrderItems = (order: Order) => {
+  const renderOrderCard = (order: Order) => {
+    const isExpanded = expandedOrders.has(order.id);
+
     return (
-      <div className="mt-3">
-        {/* Hide on mobile, show on larger screens */}
-        <div className="hidden sm:block overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product</th>
-                <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Requested Qty</th>
-                <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Available Qty</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {order.items.map((item, idx) => (
-                <tr key={`${order.id}-${idx}-desktop`}>
-                  <td className="px-3 py-2 whitespace-nowrap text-xs">{item.product}</td>
-                  <td className="px-3 py-2 whitespace-nowrap text-xs">{item.requestedQty}</td>
-                  <td className="px-3 py-2 whitespace-nowrap text-xs">
-                    {order.status === 'pending' ? (
-                      <input
-                        type="number"
-                        min="0"
-                        className="w-16 text-xs border border-gray-300 rounded p-1"
-                        value={getAvailableQty(order.id, item.product, item.availableQty) || ''}
-                        onChange={(e) => updateAvailableQty(
-                          order.id,
-                          item.product,
-                          e.target.value ? parseInt(e.target.value) : 0
-                        )}
-                      />
-                    ) : (
-                      item.availableQty
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Show on mobile, hide on larger screens */}
-        <div className="sm:hidden space-y-3">
-          {order.items.map((item, idx) => (
-            <div
-              key={`${order.id}-${idx}-mobile`}
-              className="bg-white p-3 rounded border border-gray-200"
-            >
-              <div className="font-medium mb-2">{item.product}</div>
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <div className="text-gray-600">Requested:</div>
-                <div>{item.requestedQty}</div>
-
-                <div className="text-gray-600">Available:</div>
-                <div>
-                  {order.status === 'pending' ? (
-                    <input
-                      type="number"
-                      min="0"
-                      className="w-full text-xs border border-gray-300 rounded p-1"
-                      value={getAvailableQty(order.id, item.product, item.availableQty) || ''}
-                      onChange={(e) => updateAvailableQty(
-                        order.id,
-                        item.product,
-                        e.target.value ? parseInt(e.target.value) : 0
-                      )}
-                    />
-                  ) : (
-                    item.availableQty
-                  )}
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  };
-
-  // Render an order based on the data
-  const renderOrder = (order: Order) => {
-    return (
-      <div key={order.id} className="hover:bg-gray-50 transition">
-        <div
-          className="p-3 sm:p-4 cursor-pointer"
-          onClick={() => toggleOrderOpen(order.id)}
+      <Card key={order.id} className="hover:shadow-md transition-shadow">
+        <CardHeader 
+          className="cursor-pointer pb-3"
+          onClick={() => toggleOrderExpanded(order.id)}
         >
-          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start">
-            <div className="mb-2 sm:mb-0">
-              <h3 className="font-medium">{order.customerName}</h3>
-              <p className="text-xs sm:text-sm text-gray-500">Order #{order.id} • {order.date}</p>
-            </div>
-            <div className="flex items-center justify-between sm:justify-end sm:text-right mt-1 sm:mt-0">
-              <span className="font-semibold text-sm sm:text-base">${order.amount.toFixed(2)}</span>
-              <div className="mx-2">
-                {renderStatusBadge(order.status)}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div>
+                <CardTitle className="text-lg">Order #{order.id}</CardTitle>
+                <CardDescription className="flex items-center gap-4 mt-1">
+                  <span className="flex items-center gap-1">
+                    <User className="h-4 w-4" />
+                    {order.customerName}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <Calendar className="h-4 w-4" />
+                    {order.date}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <DollarSign className="h-4 w-4" />
+                    ₹{order.amount.toFixed(2)}
+                  </span>
+                </CardDescription>
               </div>
-              <svg
-                className={`w-4 h-4 sm:w-5 sm:h-5 ml-1 sm:ml-2 transition-transform ${isOrderOpen(order.id) ? 'transform rotate-180' : ''}`}
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
+            </div>
+            <div className="flex items-center gap-3">
+              {getStatusBadge(order.status)}
+              {isExpanded ? 
+                <ChevronUp className="h-5 w-5 text-muted-foreground" /> : 
+                <ChevronDown className="h-5 w-5 text-muted-foreground" />
+              }
             </div>
           </div>
-        </div>
-        {isOrderOpen(order.id) && (
-          <div className="px-3 sm:px-4 pb-3 sm:pb-4 pt-1 bg-gray-50">
-            <h4 className="text-xs sm:text-sm font-medium text-gray-700 mb-2">Order Details:</h4>
-            {renderOrderItems(order)}
-            <div className="mt-3">
-              <p className="text-xs sm:text-sm"><span className="font-medium">Total Amount:</span> ${order.amount.toFixed(2)}</p>
-              <p className="text-xs sm:text-sm"><span className="font-medium">Date:</span> {order.date}</p>
-              <p className="text-xs sm:text-sm"><span className="font-medium">Status:</span> {order.status.charAt(0).toUpperCase() + order.status.slice(1)}</p>
-            </div>
-            {order.status === 'pending' && (
-              <div className="mt-3 flex justify-end">
-                <button className="bg-blue-500 hover:bg-blue-600 text-white text-xs px-3 py-1 rounded-md">
-                  Submit Available Quantities
-                </button>
+        </CardHeader>
+        
+        {isExpanded && (
+          <CardContent className="pt-0">
+            <Separator className="mb-4" />
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                <Package className="h-4 w-4" />
+                Order Items ({order.items.length})
               </div>
-            )}
-          </div>
+              <div className="space-y-3">
+                {order.items.map((item, index) => (
+                  <div key={index} className="flex items-center justify-between p-3 bg-muted/30 rounded-md">
+                    <div className="flex-1">
+                      <p className="font-medium">{item.product}</p>
+                      <p className="text-sm text-muted-foreground">
+                        Requested: {item.requestedQty} | Available: {item.availableQty}
+                      </p>
+                    </div>
+                    {order.status === 'pending' && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-muted-foreground">Available:</span>
+                        <Input
+                          type="number"
+                          min="0"
+                          defaultValue={item.availableQty}
+                          className="w-20 h-8"
+                        />
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+              
+              {order.status === 'pending' && (
+                <div className="flex justify-end pt-2">
+                  <Button size="sm">
+                    Update Available Quantities
+                  </Button>
+                </div>
+              )}
+            </div>
+          </CardContent>
         )}
-      </div>
+      </Card>
     );
-  };
-
-  // State for add order modal
-  const [isAddOrderModalOpen, setIsAddOrderModalOpen] = useState(false);
-
-  // State for new order form
-  const [newOrder, setNewOrder] = useState<Omit<Order, 'id' | 'status' | 'date'>>({
-    customerName: '',
-    amount: 0,
-    items: [{ product: '', requestedQty: 1 }]
-  });
-
-  // Add a new item to the order form
-  const addItem = () => {
-    setNewOrder(prev => ({
-      ...prev,
-      items: [...prev.items, { product: '', requestedQty: 1 }]
-    }));
-  };
-
-  // Remove an item from the order form
-  const removeItem = (index: number) => {
-    setNewOrder(prev => ({
-      ...prev,
-      items: prev.items.filter((_, i) => i !== index)
-    }));
-  };
-
-  // Handle changes to order item fields
-  const handleItemChange = (index: number, field: keyof OrderItem, value: string | number) => {
-    setNewOrder(prev => ({
-      ...prev,
-      items: prev.items.map((item, i) =>
-        i === index ? { ...item, [field]: value } : item
-      )
-    }));
-  };
-
-  // Handle form submission
-  const handleAddOrder = (e: React.FormEvent) => {
-    e.preventDefault();
-
-    // Generate a new unique ID
-    const newId = `00${orders.length + 1}`;
-
-    // Create a new order with today's date
-    const today = new Date().toISOString().split('T')[0];
-
-    const createdOrder: Order = {
-      ...newOrder,
-      id: newId,
-      date: today,
-      status: 'pending',
-      items: newOrder.items.map(item => ({
-        ...item,
-        availableQty: item.requestedQty // Default available to requested
-      }))
-    };
-
-    // In a real app, you would send this to an API
-    // For this example, we update the orders state here
-    setOrders([...orders, createdOrder]);
-
-    // Close the modal and reset the form
-    setIsAddOrderModalOpen(false);
-    setNewOrder({
-      customerName: '',
-      amount: 0,
-      items: [{ product: '', requestedQty: 1 }]
-    });
   };
 
   return (
-    <>
-      <div className="px-6">
-        <SiteHeader name="Orders" />
-      </div>
-      <div className="container mx-auto px-4 sm:px-6 py-4 sm:py-6">
-
-        {/* Add Order Button */}
-        <div className="flex justify-end mb-4">
-          <button
-            onClick={() => window.location.href = '/orders/create'}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md flex items-center"
-          >
-            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            New Order
-          </button>
+    <div className="flex flex-col">
+      <SiteHeader name="Orders" />
+      <div className="flex-1 space-y-6 p-6">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Orders</h1>
+            <p className="text-muted-foreground mt-1">
+              Manage and track all your orders
+            </p>
+          </div>
+          <div className="flex items-center gap-2 mt-4 sm:mt-0">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={fetchOrders}
+              disabled={loading}
+              className="flex items-center gap-2 cursor-pointer"
+            >
+              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+            <Button className='cursor-pointer' onClick={() => window.location.href = '/orders/create'}>
+              <Plus className="h-4 w-4 mr-2" />
+              New Order
+            </Button>
+          </div>
         </div>
 
-        {/* Add Order Modal */}
-        {isAddOrderModalOpen && (
-          <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold">Add New Order</h2>
-                <button onClick={() => setIsAddOrderModalOpen(false)} className="text-gray-400 hover:text-gray-600">
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
+        {/* Error State */}
+        {error && (
+          <Card className="border-red-200 bg-red-50">
+            <CardContent className="py-4">
+              <div className="flex items-center justify-between">
+                <p className="text-red-800">Error: {error}</p>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={fetchOrders}
+                  disabled={loading}
+                  className="text-red-800 border-red-300 hover:bg-red-100"
+                >
+                  <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+                  Retry
+                </Button>
               </div>
-
-              <form onSubmit={handleAddOrder}>
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Customer Name</label>
-                  <input
-                    type="text"
-                    value={newOrder.customerName}
-                    onChange={(e) => setNewOrder({ ...newOrder, customerName: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                    required
-                  />
-                </div>
-
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Amount ($)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={newOrder.amount}
-                    onChange={(e) => setNewOrder({ ...newOrder, amount: parseFloat(e.target.value) })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                    required
-                  />
-                </div>
-
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Items</label>
-                  {newOrder.items.map((item, index) => (
-                    <div key={index} className="flex items-center gap-2 mb-2">
-                      <input
-                        type="text"
-                        placeholder="Product"
-                        value={item.product}
-                        onChange={(e) => handleItemChange(index, 'product', e.target.value)}
-                        className="flex-1 px-3 py-2 border border-gray-300 rounded-md"
-                        required
-                      />
-                      <input
-                        type="number"
-                        placeholder="Qty"
-                        min="1"
-                        value={item.requestedQty}
-                        onChange={(e) => handleItemChange(index, 'requestedQty', parseInt(e.target.value))}
-                        className="w-20 px-3 py-2 border border-gray-300 rounded-md"
-                        required
-                      />
-                      <button
-                        type="button"
-                        onClick={() => removeItem(index)}
-                        className="text-red-500 hover:text-red-700"
-                      >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                      </button>
-                    </div>
-                  ))}
-                  <button
-                    type="button"
-                    onClick={addItem}
-                    className="text-sm text-blue-600 hover:text-blue-800 flex items-center mt-2"
-                  >
-                    <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                    </svg>
-                    Add Item
-                  </button>
-                </div>
-
-                <div className="mt-6 flex justify-end">
-                  <button
-                    type="button"
-                    onClick={() => setIsAddOrderModalOpen(false)}
-                    className="mr-2 px-4 py-2 border border-gray-300 rounded-md text-sm"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm"
-                  >
-                    Create Order
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
+            </CardContent>
+          </Card>
         )}
 
-        {/* Mobile dropdown for tabs */}
-        <div className="sm:hidden mb-4 relative" ref={dropdownRef}>
-          <button
-            onClick={toggleDropdown}
-            className="w-full flex items-center justify-between p-3 border rounded-md bg-white shadow-sm"
-          >
-            <span className="font-medium">{getTabLabel(activeTab)}</span>
-            <svg
-              className={`w-5 h-5 transition-transform ${isDropdownOpen ? 'transform rotate-180' : ''}`}
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
-          </button>
-
-          {isDropdownOpen && (
-            <div className="absolute z-10 mt-1 w-full bg-white border rounded-md shadow-lg">
-              <button
-                className={`w-full text-left p-3 hover:bg-gray-100 ${activeTab === 'pending' ? 'bg-amber-50 text-amber-700' : ''}`}
-                onClick={() => handleTabChange('pending')}
-              >
-                Pending ({pendingOrders.length})
-              </button>
-              <button
-                className={`w-full text-left p-3 hover:bg-gray-100 ${activeTab === 'review' ? 'bg-blue-50 text-blue-700' : ''}`}
-                onClick={() => handleTabChange('review')}
-              >
-                Under Review ({reviewOrders.length})
-              </button>
-              <button
-                className={`w-full text-left p-3 hover:bg-gray-100 ${activeTab === 'approved' ? 'bg-green-50 text-green-700' : ''}`}
-                onClick={() => handleTabChange('approved')}
-              >
-                Approved ({approvedOrders.length})
-              </button>
-            </div>
-          )}
-        </div>
-
-        {/* Desktop tabs */}
-        <div className="hidden sm:block mb-6 overflow-x-auto">
-          <div className="flex border-b min-w-max">
-            <button
-              className={`py-2 px-4 text-base font-medium whitespace-nowrap ${activeTab === 'pending' ? 'border-b-2 border-amber-500 text-amber-600' : 'text-gray-500 hover:text-gray-700'
-                }`}
-              onClick={() => setActiveTab('pending')}
-            >
-              Pending ({pendingOrders.length})
-            </button>
-            <button
-              className={`py-2 px-4 text-base font-medium whitespace-nowrap ${activeTab === 'review' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-500 hover:text-gray-700'
-                }`}
-              onClick={() => setActiveTab('review')}
-            >
-              Under Review ({reviewOrders.length})
-            </button>
-            <button
-              className={`py-2 px-4 text-base font-medium whitespace-nowrap ${activeTab === 'approved' ? 'border-b-2 border-green-500 text-green-600' : 'text-gray-500 hover:text-gray-700'
-                }`}
-              onClick={() => setActiveTab('approved')}
-            >
-              Approved ({approvedOrders.length})
-            </button>
+        {/* Loading State */}
+        {loading ? (
+          <div className="space-y-4">
+            {[1, 2, 3].map((i) => (
+              <Card key={i} className="animate-pulse">
+                <CardContent className="py-6">
+                  <div className="space-y-3">
+                    <div className="h-4 bg-muted rounded w-1/4"></div>
+                    <div className="h-3 bg-muted rounded w-1/2"></div>
+                    <div className="h-3 bg-muted rounded w-1/3"></div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
           </div>
-        </div>
-
-        <div className="border rounded-lg overflow-hidden shadow-sm">
-          {activeTab === 'pending' && (
-            <div className="divide-y">
-              {pendingOrders.length > 0 ? (
-                pendingOrders.map(order => renderOrder(order))
-              ) : (
-                <p className="text-center p-4 sm:p-8 text-gray-500 text-sm sm:text-base">No pending orders</p>
-              )}
+        ) : (
+          <>
+            {/* Search */}
+            <div className="flex items-center gap-4">
+              <div className="relative flex-1 max-w-sm">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search orders..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
             </div>
-          )}
 
-          {activeTab === 'review' && (
-            <div className="divide-y">
-              {reviewOrders.length > 0 ? (
-                reviewOrders.map(order => renderOrder(order))
-              ) : (
-                <p className="text-center p-4 sm:p-8 text-gray-500 text-sm sm:text-base">No orders under review</p>
-              )}
-            </div>
-          )}
+            {/* Tabs */}
+            <Tabs defaultValue="pending" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="pending" className="flex items-center gap-2">
+            Pending
+            <Badge variant="secondary" className="ml-1">{pendingOrders.length}</Badge>
+          </TabsTrigger>
+          <TabsTrigger value="review" className="flex items-center gap-2">
+            Under Review
+            <Badge variant="secondary" className="ml-1">{reviewOrders.length}</Badge>
+          </TabsTrigger>
+          <TabsTrigger value="approved" className="flex items-center gap-2">
+            Approved
+            <Badge variant="secondary" className="ml-1">{approvedOrders.length}</Badge>
+          </TabsTrigger>
+        </TabsList>
 
-          {activeTab === 'approved' && (
-            <div className="divide-y">
-              {approvedOrders.length > 0 ? (
-                approvedOrders.map(order => renderOrder(order))
-              ) : (
-                <p className="text-center p-4 sm:p-8 text-gray-500 text-sm sm:text-base">No approved orders</p>
-              )}
-            </div>
+        <TabsContent value="pending" className="space-y-4">
+          {pendingOrders.length > 0 ? (
+            pendingOrders.map(order => renderOrderCard(order))
+          ) : (
+            <Card>
+              <CardContent className="py-8 text-center">
+                <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                <p className="text-muted-foreground">No pending orders found</p>
+              </CardContent>
+            </Card>
           )}
-        </div>
+        </TabsContent>
+
+        <TabsContent value="review" className="space-y-4">
+          {reviewOrders.length > 0 ? (
+            reviewOrders.map(order => renderOrderCard(order))
+          ) : (
+            <Card>
+              <CardContent className="py-8 text-center">
+                <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                <p className="text-muted-foreground">No orders under review</p>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        <TabsContent value="approved" className="space-y-4">
+          {approvedOrders.length > 0 ? (
+            approvedOrders.map(order => renderOrderCard(order))
+          ) : (
+            <Card>
+              <CardContent className="py-8 text-center">
+                <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                <p className="text-muted-foreground">No approved orders found</p>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+      </Tabs>
+          </>
+        )}
       </div>
-    </>
+    </div>
   );
 }

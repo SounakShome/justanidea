@@ -45,8 +45,6 @@ export default function Page() {
         fetchQuickInfo();
     }, []);
 
-    console.log("Quick Info:", quickInfo);
-
     return (
         <>
             <SiteHeader name="Quick Create" />

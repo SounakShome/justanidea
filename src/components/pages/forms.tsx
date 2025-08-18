@@ -1,13 +1,33 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useForm } from "react-hook-form";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { 
+  Command, 
+  CommandEmpty, 
+  CommandGroup, 
+  CommandInput, 
+  CommandItem, 
+  CommandList 
+} from "@/components/ui/command";
+import { 
+  Popover, 
+  PopoverContent, 
+  PopoverTrigger 
+} from "@/components/ui/popover";
+import { Check, ChevronsUpDown } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+
+// Interface for combobox items
+interface ComboboxItem {
+  id: string;
+  name: string;
+  division?: string;
+  [key: string]: string | undefined;
+}
 
 // Helper component for form inputs with labels and errors
 const FormField = ({
@@ -28,9 +48,85 @@ const FormField = ({
   </div>
 );
 
+// Custom Combobox component for forms
+const FormCombobox = ({
+  placeholder,
+  items,
+  value,
+  onValueChange,
+  displayKey = "name",
+  valueKey = "id"
+}: {
+  placeholder: string;
+  items: ComboboxItem[];
+  value: string;
+  onValueChange: (value: string) => void;
+  displayKey?: string;
+  valueKey?: string;
+}) => {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className="w-full justify-between"
+        >
+          {value
+            ? items.find((item) => item[valueKey] === value)?.[displayKey] || placeholder
+            : placeholder}
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-full p-0">
+        <Command>
+          <CommandInput placeholder={`Search ${placeholder.toLowerCase()}...`} />
+          <CommandList>
+            <CommandEmpty>No results found.</CommandEmpty>
+            <CommandGroup>
+              {items.map((item) => (
+                <CommandItem
+                  key={item[valueKey]}
+                  value={item[displayKey]}
+                  onSelect={() => {
+                    const selectedValue = item[valueKey];
+                    if (selectedValue) {
+                      onValueChange(selectedValue);
+                    }
+                    setOpen(false);
+                  }}
+                >
+                  <Check
+                    className={cn(
+                      "mr-2 h-4 w-4",
+                      value === item[valueKey] ? "opacity-100" : "opacity-0"
+                    )}
+                  />
+                  {item[displayKey]}
+                  {item.division && ` (${item.division})`}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+};
+
 export function CustomerForm({ onClose }: { onClose?: () => void }) {
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState("basic");
+  const [customers, setCustomers] = useState<CustomerFormData[]>([{
+    name: "",
+    GSTIN: "",
+    phone: "",
+    address: "",
+    state: "KARNATAKA",
+    code: 29
+  }]);
 
   interface CustomerFormData {
     name: string;
@@ -41,160 +137,200 @@ export function CustomerForm({ onClose }: { onClose?: () => void }) {
     code: number;
   }
 
-  const { register, handleSubmit, formState: { errors } } = useForm<CustomerFormData>({
-    defaultValues: {
+  const addCustomerInstance = () => {
+    setCustomers([...customers, {
       name: "",
       GSTIN: "",
       phone: "",
       address: "",
       state: "KARNATAKA",
       code: 29
+    }]);
+  };
+
+  const removeCustomerInstance = (index: number) => {
+    if (customers.length > 1) {
+      setCustomers(customers.filter((_, i) => i !== index));
     }
-  });
+  };
 
+  const updateCustomer = (index: number, field: keyof CustomerFormData, value: string | number) => {
+    const updated = [...customers];
+    updated[index] = { ...updated[index], [field]: value };
+    setCustomers(updated);
+  };
 
-  const onSubmit = async (data: CustomerFormData) => {
+  const onSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     setLoading(true);
 
-    // Simulate API call
-    const res = await fetch("/api/addCustomer", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(data),
-    });
+    try {
+      const promises = customers.map(async (customer) => {
+        const res = await fetch("/api/addCustomer", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(customer),
+        });
 
-    if( !res.ok) {
-      toast.error("Failed to create customer");
+        if (!res.ok) {
+          throw new Error(`Failed to create customer: ${customer.name}`);
+        }
+        return customer;
+      });
+
+      await Promise.all(promises);
+
+      toast("Customers created", {
+        description: `${customers.length} customer(s) have been added successfully.`,
+      });
+
       setLoading(false);
-      return;
+      onClose?.();
+    } catch {
+      toast.error("Failed to create some customers");
+      setLoading(false);
     }
-
-    console.log("Customer data:", { ...data });
-
-    toast("Customer created", {
-      description: `${data.name} has been added successfully.`,
-    });
-
-    setLoading(false);
-    onClose?.(); // Close the form if onClose is provided
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Bento grid layout - Start */}
+    <div className="w-full max-w-4xl mx-auto p-3 sm:p-6">
+      <form onSubmit={onSubmit} className="space-y-4">
+        {/* Mobile-first header */}
+        <div className="text-center space-y-2 mb-6">
+          <h2 className="text-xl sm:text-2xl font-bold">Add New Customers</h2>
+          <p className="text-sm text-muted-foreground">
+            Create customer profiles for your business
+          </p>
+        </div>
 
-        {/* Header card - spans 2 columns */}
-        <Card className="md:col-span-3">
-          <CardHeader>
-            <CardTitle className="text-2xl">Add New Customer</CardTitle>
-            <CardDescription>
-              Create a new customer profile in your business database
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="grid grid-cols-2">
-                <TabsTrigger className="cursor-pointer" value="basic">Basic Info</TabsTrigger>
-                <TabsTrigger className="cursor-pointer" value="address">Address</TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="basic" className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <FormField
-                    label="Name"
-                    error={errors.name?.message}
+        {/* Customer instances */}
+        {customers.map((customer, index) => (
+          <Card key={index} className="relative">
+            <CardHeader className="pb-4">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg">Customer {index + 1}</CardTitle>
+                {customers.length > 1 && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => removeCustomerInstance(index)}
+                    className="text-red-600 hover:text-red-700"
                   >
-                    <Input
-                      placeholder="John"
-                      {...register("name", { required: "Name is required" })}
-                    />
-                  </FormField>
-
-                  <FormField
-                    label="GSTIN"
-                    error={errors.GSTIN?.message}
-                  >
-                    <Input
-                      placeholder="GSTIN..."
-                      {...register("GSTIN", { required: "GSTIN is required" })}
-                    />
-                  </FormField>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <FormField
-                    label="Phone"
-                    error={errors.phone?.message}
-                  >
-                    <Input
-                      placeholder="12345 67890"
-                      {...register("phone", { required: "Phone number is required" })}
-                    />
-                  </FormField>
-                </div>
-              </TabsContent>
-
-              <TabsContent value="address" className="space-y-4">
-                <FormField
-                  label="Address"
-                  error={errors.address?.message}
-                >
+                    Remove
+                  </Button>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Mobile-first: Single column on mobile */}
+              <div className="space-y-4">
+                <FormField label="Name" error="">
                   <Input
-                    placeholder="123 Street"
-                    {...register("address", { required: "Address is required" })}
+                    placeholder="Customer Name"
+                    value={customer.name}
+                    onChange={(e) => updateCustomer(index, "name", e.target.value)}
                   />
                 </FormField>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <FormField
-                    label="State"
-                    error={errors.state?.message}
-                  >
+                  <FormField label="GSTIN" error="">
                     <Input
-                      placeholder="State"
-                      {...register("state", { required: "State is required" })}
+                      placeholder="GSTIN Number"
+                      value={customer.GSTIN}
+                      onChange={(e) => updateCustomer(index, "GSTIN", e.target.value)}
+                    />
+                  </FormField>
+
+                  <FormField label="Phone" error="">
+                    <Input
+                      placeholder="Phone Number"
+                      value={customer.phone}
+                      onChange={(e) => updateCustomer(index, "phone", e.target.value)}
                     />
                   </FormField>
                 </div>
-              </TabsContent>
-            </Tabs>
-          </CardContent>
-        </Card>
 
-        {/* Submit button - spans 2 columns */}
-        <Button
-          type="submit"
-          className="w-full cursor-pointer"
-          size="lg"
-          disabled={loading}
-        >
-          {loading ? "Creating Customer..." : "Create Customer"}
-        </Button>
-        {/* Bento grid layout - End */}
-      </div>
-    </form>
+                <FormField label="Address" error="">
+                  <Input
+                    placeholder="Full Address"
+                    value={customer.address}
+                    onChange={(e) => updateCustomer(index, "address", e.target.value)}
+                  />
+                </FormField>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <FormField label="State" error="">
+                    <Input
+                      placeholder="State"
+                      value={customer.state}
+                      onChange={(e) => updateCustomer(index, "state", e.target.value)}
+                    />
+                  </FormField>
+
+                  <FormField label="State Code" error="">
+                    <Input
+                      type="number"
+                      placeholder="29"
+                      value={customer.code}
+                      onChange={(e) => updateCustomer(index, "code", Number(e.target.value))}
+                    />
+                  </FormField>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+
+        {/* Action buttons - mobile-first layout */}
+        <div className="flex flex-col sm:flex-row gap-3 pt-4">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={addCustomerInstance}
+            className="w-full sm:w-auto"
+          >
+            Add Another Customer
+          </Button>
+          
+          <div className="flex gap-2 sm:ml-auto">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
+              className="flex-1 sm:w-auto"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              disabled={loading}
+              className="flex-1 sm:w-auto"
+            >
+              {loading ? "Creating..." : `Create ${customers.length} Customer${customers.length > 1 ? 's' : ''}`}
+            </Button>
+          </div>
+        </div>
+      </form>
+    </div>
   );
 }
 
 export function SupplierForm({ onClose }: { onClose?: () => void }) {
   const [loading, setLoading] = useState(false);
-
-  const { register, handleSubmit, formState: { errors } } = useForm({
-    defaultValues: {
-      companyName: "",
-      division: "",
-      address: "",
-      phone: "",
-      CIN: "",
-      GSTIN: "",
-      PAN: "",
-      Supp_State: "",
-      Code: "",
-    }
-  });
+  const [suppliers, setSuppliers] = useState<SupplierFormData[]>([{
+    companyName: "",
+    division: "",
+    address: "",
+    phone: "",
+    CIN: "",
+    GSTIN: "",
+    PAN: "",
+    Supp_State: "",
+    Code: "",
+  }]);
 
   interface SupplierFormData {
     companyName: string;
@@ -208,253 +344,367 @@ export function SupplierForm({ onClose }: { onClose?: () => void }) {
     Code: string;
   }
 
-  const onSubmit = async (data: SupplierFormData): Promise<void> => {
-    setLoading(true);
-    // Simulate API call
-    const res = await fetch("/api/addSupplier", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(data),
-    });
+  const addSupplierInstance = () => {
+    setSuppliers([...suppliers, {
+      companyName: "",
+      division: "",
+      address: "",
+      phone: "",
+      CIN: "",
+      GSTIN: "",
+      PAN: "",
+      Supp_State: "",
+      Code: "",
+    }]);
+  };
 
-    if (!res.ok) {
-      toast.error("Failed to create supplier");
-      setLoading(false);
-      return;
+  const removeSupplierInstance = (index: number) => {
+    if (suppliers.length > 1) {
+      setSuppliers(suppliers.filter((_, i) => i !== index));
     }
+  };
 
-    console.log("Supplier data:", { ...data });
+  const updateSupplier = (index: number, field: keyof SupplierFormData, value: string) => {
+    const updated = [...suppliers];
+    updated[index] = { ...updated[index], [field]: value };
+    setSuppliers(updated);
+  };
 
-    toast("Supplier created", {
-      description: `${data.companyName} has been added as a supplier.`,
-    });
-    setLoading(false);
-    onClose?.();
+  const onSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      const promises = suppliers.map(async (supplier) => {
+        const res = await fetch("/api/addSupplier", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(supplier),
+        });
+
+        if (!res.ok) {
+          throw new Error(`Failed to create supplier: ${supplier.companyName}`);
+        }
+        return supplier;
+      });
+
+      await Promise.all(promises);
+
+      toast("Suppliers created", {
+        description: `${suppliers.length} supplier(s) have been added successfully.`,
+      });
+
+      setLoading(false);
+      onClose?.();
+    } catch {
+      toast.error("Failed to create some suppliers");
+      setLoading(false);
+    }
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 overflow-auto">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Header card */}
-        <div className="md:col-span-3">
-          <CardHeader>
-            <CardTitle className="text-2xl">Add New Supplier</CardTitle>
-            <CardDescription>
-              Create a new supplier that your business works with
-            </CardDescription>
-          </CardHeader>
+    <div className="w-full max-w-5xl mx-auto p-3 sm:p-6">
+      <form onSubmit={onSubmit} className="space-y-4">
+        {/* Mobile-first header */}
+        <div className="text-center space-y-2 mb-6">
+          <h2 className="text-xl sm:text-2xl font-bold">Add New Suppliers</h2>
+          <p className="text-sm text-muted-foreground">
+            Create supplier profiles for your business
+          </p>
         </div>
 
-        {/* Company Information */}
-        <div className="md:col-span-2">
-          <CardHeader>
-            <CardTitle>Company Details</CardTitle>
-            <CardDescription>Basic information about the supplier</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
+        {/* Supplier instances */}
+        {suppliers.map((supplier, index) => (
+          <Card key={index} className="relative">
+            <CardHeader className="pb-4">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg">Supplier {index + 1}</CardTitle>
+                {suppliers.length > 1 && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => removeSupplierInstance(index)}
+                    className="text-red-600 hover:text-red-700"
+                  >
+                    Remove
+                  </Button>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Company basics - mobile-first */}
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <FormField label="Company Name" error="">
+                    <Input
+                      placeholder="Acme Corporation"
+                      value={supplier.companyName}
+                      onChange={(e) => updateSupplier(index, "companyName", e.target.value)}
+                    />
+                  </FormField>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <FormField
-                label="Company Name"
-                error={errors.companyName?.message}
-              >
-                <Input
-                  placeholder="Acme Corporation"
-                  {...register("companyName", { required: "Company name is required" })}
-                />
-              </FormField>
-              <FormField
-                label="Division"
-                error={errors.division?.message}
-              >
-                <Input
-                  placeholder="Division..."
-                  {...register("division", { required: "Division is required" })}
-                />
-              </FormField>
-            </div>
+                  <FormField label="Division" error="">
+                    <Input
+                      placeholder="Manufacturing Division"
+                      value={supplier.division}
+                      onChange={(e) => updateSupplier(index, "division", e.target.value)}
+                    />
+                  </FormField>
+                </div>
 
-            <FormField
-              label="Address"
-              error={errors.address?.message}
+                <FormField label="Address" error="">
+                  <Input
+                    placeholder="123 Business Ave, City"
+                    value={supplier.address}
+                    onChange={(e) => updateSupplier(index, "address", e.target.value)}
+                  />
+                </FormField>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <FormField label="Phone" error="">
+                    <Input
+                      placeholder="(123) 456-7890"
+                      value={supplier.phone}
+                      onChange={(e) => updateSupplier(index, "phone", e.target.value)}
+                    />
+                  </FormField>
+
+                  <FormField label="CIN" error="">
+                    <Input
+                      placeholder="CIN Number"
+                      value={supplier.CIN}
+                      onChange={(e) => updateSupplier(index, "CIN", e.target.value)}
+                    />
+                  </FormField>
+                </div>
+
+                {/* Tax details */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <FormField label="GSTIN" error="">
+                    <Input
+                      placeholder="GSTIN Number"
+                      value={supplier.GSTIN}
+                      onChange={(e) => updateSupplier(index, "GSTIN", e.target.value)}
+                    />
+                  </FormField>
+
+                  <FormField label="PAN" error="">
+                    <Input
+                      placeholder="PAN Number"
+                      value={supplier.PAN}
+                      onChange={(e) => updateSupplier(index, "PAN", e.target.value)}
+                    />
+                  </FormField>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <FormField label="Supplier State" error="">
+                    <Input
+                      placeholder="State Name"
+                      value={supplier.Supp_State}
+                      onChange={(e) => updateSupplier(index, "Supp_State", e.target.value)}
+                    />
+                  </FormField>
+
+                  <FormField label="State Code" error="">
+                    <Input
+                      placeholder="State Code"
+                      value={supplier.Code}
+                      onChange={(e) => updateSupplier(index, "Code", e.target.value)}
+                    />
+                  </FormField>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+
+        {/* Action buttons - mobile-first layout */}
+        <div className="flex flex-col sm:flex-row gap-3 pt-4">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={addSupplierInstance}
+            className="w-full sm:w-auto"
+          >
+            Add Another Supplier
+          </Button>
+          
+          <div className="flex gap-2 sm:ml-auto">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
+              className="flex-1 sm:w-auto"
             >
-              <Input
-                placeholder="123 Business Ave"
-                {...register("address", { required: "Address is required" })}
-              />
-            </FormField>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <FormField
-                label="Phone"
-                error={errors.phone?.message}
-              >
-                <Input
-                  placeholder="(123) 456-7890"
-                  {...register("phone", { required: "Phone is required" })}
-                />
-              </FormField>
-
-              <FormField
-                label="CIN"
-                error={errors.CIN?.message}
-              >
-                <Input
-                  placeholder="CIN..."
-                  {...register("CIN", { required: "CIN is required" })}
-                />
-              </FormField>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <FormField
-                label="GSTIN"
-                error={errors.GSTIN?.message}
-              >
-                <Input
-                  placeholder="GSTIN..."
-                  {...register("GSTIN", { required: "GSTIN is required" })}
-                />
-              </FormField>
-
-              <FormField
-                label="PAN"
-                error={errors.PAN?.message}
-              >
-                <Input
-                  placeholder="PAN..."
-                  {...register("PAN", { required: "PAN is required" })}
-                />
-              </FormField>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <FormField
-                label="Supplier State"
-                error={errors.Supp_State?.message}
-              >
-                <Input
-                  placeholder="Supplier State..."
-                  {...register("Supp_State", { required: "Supp_State is required" })}
-                />
-              </FormField>
-
-              <FormField
-                label="State Code"
-                error={errors.Code?.message}
-              >
-                <Input
-                  placeholder="State Code..."
-                  {...register("Code", { required: "State Code is required" })}
-                />
-              </FormField>
-            </div>
-          </CardContent>
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              disabled={loading}
+              className="flex-1 sm:w-auto"
+            >
+              {loading ? "Creating..." : `Create ${suppliers.length} Supplier${suppliers.length > 1 ? 's' : ''}`}
+            </Button>
+          </div>
         </div>
-
-      </div>
-      <Button
-        type="submit"
-        className="cursor-pointer"
-        size="lg"
-        disabled={loading}
-      >
-        {loading ? "Creating Supplier..." : "Create Supplier"}
-      </Button>
-    </form>
+      </form>
+    </div>
   );
 }
 
 export function ProductForm({ onClose }: { onClose?: () => void }) {
   const [loading, setLoading] = useState(false);
+  const [products, setProducts] = useState<ProductFormData[]>([{
+    name: "",
+    HSN: "",
+  }]);
 
   interface ProductFormData {
     name: string;
     HSN: string;
   }
 
-  const { register, handleSubmit, formState: { errors } } = useForm<ProductFormData>({
-    defaultValues: {
+  const addProductInstance = () => {
+    setProducts([...products, {
       name: "",
       HSN: "",
-    }
-  });
+    }]);
+  };
 
-  const onSubmit = async (data: ProductFormData) => {
-    setLoading(true);
-    // Simulate API call
-    const res = await fetch("/api/addProduct", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(data),
-    });
-    if (res.ok) {
-      onClose?.();
+  const removeProductInstance = (index: number) => {
+    if (products.length > 1) {
+      setProducts(products.filter((_, i) => i !== index));
     }
-    toast("Product created", {
-      description: `${data.name} has been added to your inventory.`,
-    });
-    setLoading(false);
+  };
+
+  const updateProduct = (index: number, field: keyof ProductFormData, value: string) => {
+    const updated = [...products];
+    updated[index] = { ...updated[index], [field]: value };
+    setProducts(updated);
+  };
+
+  const onSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      const promises = products.map(async (product) => {
+        const res = await fetch("/api/addProduct", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(product),
+        });
+
+        if (!res.ok) {
+          throw new Error(`Failed to create product: ${product.name}`);
+        }
+        return product;
+      });
+
+      await Promise.all(promises);
+
+      toast("Products created", {
+        description: `${products.length} product(s) have been added to your inventory.`,
+      });
+
+      setLoading(false);
+      onClose?.();
+    } catch {
+      toast.error("Failed to create some products");
+      setLoading(false);
+    }
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
-        {/* Header - spans full width */}
-        <div className="md:col-span-5">
-          <CardHeader>
-            <CardTitle className="text-2xl">Add New Product</CardTitle>
-            <CardDescription>
-              Create a new product to add to your inventory
-            </CardDescription>
-          </CardHeader>
+    <div className="w-full max-w-3xl mx-auto p-3 sm:p-6">
+      <form onSubmit={onSubmit} className="space-y-4">
+        {/* Mobile-first header */}
+        <div className="text-center space-y-2 mb-6">
+          <h2 className="text-xl sm:text-2xl font-bold">Add New Products</h2>
+          <p className="text-sm text-muted-foreground">
+            Create products to add to your inventory
+          </p>
         </div>
 
-        {/* Basic Info - spans 3 columns */}
-        <div className="md:col-span-5">
-          <CardHeader>
-            <CardTitle>Basic Information</CardTitle>
-            <CardDescription>Essential product details</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                label="Product Name"
-                error={errors.name?.message}
-              >
-                <Input
-                  placeholder="Premium Widget"
-                  {...register("name", { required: "Product name is required" })}
-                />
-              </FormField>
-              <FormField
-                label="HSN"
-                error={errors.HSN?.message}
-              >
-                <Input
-                  placeholder="WIDGET-001"
-                  {...register("HSN", { required: "HSN is required" })}
-                />
-              </FormField>
-            </div>
-          </CardContent>
-        </div>
+        {/* Product instances */}
+        {products.map((product, index) => (
+          <Card key={index} className="relative">
+            <CardHeader className="pb-4">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg">Product {index + 1}</CardTitle>
+                {products.length > 1 && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => removeProductInstance(index)}
+                    className="text-red-600 hover:text-red-700"
+                  >
+                    Remove
+                  </Button>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Mobile-first: Stack on mobile, row on larger screens */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <FormField label="Product Name" error="">
+                  <Input
+                    placeholder="Premium Widget"
+                    value={product.name}
+                    onChange={(e) => updateProduct(index, "name", e.target.value)}
+                  />
+                </FormField>
 
-        <div className="flex gap-2">
+                <FormField label="HSN Code" error="">
+                  <Input
+                    placeholder="12345678"
+                    value={product.HSN}
+                    onChange={(e) => updateProduct(index, "HSN", e.target.value)}
+                  />
+                </FormField>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+
+        {/* Action buttons - mobile-first layout */}
+        <div className="flex flex-col sm:flex-row gap-3 pt-4">
           <Button
-            type="submit"
-            className="w-auto px-2"
-            disabled={loading}
+            type="button"
+            variant="outline"
+            onClick={addProductInstance}
+            className="w-full sm:w-auto"
           >
-            {loading ? "Creating Product..." : "Create Product"}
+            Add Another Product
           </Button>
+          
+          <div className="flex gap-2 sm:ml-auto">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
+              className="flex-1 sm:w-auto"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              disabled={loading}
+              className="flex-1 sm:w-auto"
+            >
+              {loading ? "Creating..." : `Create ${products.length} Product${products.length > 1 ? 's' : ''}`}
+            </Button>
+          </div>
         </div>
-      </div>
-    </form>
+      </form>
+    </div>
   );
 }
 
@@ -462,28 +712,14 @@ export function VariantForm({ onClose }: { onClose?: () => void }) {
   const [loading, setLoading] = useState(false);
   const [parentProducts, setParentProducts] = useState<Array<{ id: string; name: string }>>([]);
   const [suppliers, setSuppliers] = useState<Array<{ id: string; name: string, division: string }>>([]);
-
-  useEffect(() => {
-    // Simulate fetching parent products from an API or database
-    const fetchParentProducts = async () => {
-      // Simulated data
-      const products = await fetch("/api/getItems").then((res) => res.json());
-      console.log("Fetched parent products:", products);
-      setParentProducts(products);
-    };
-
-    // Simulate fetching suppliers from an API or database
-    const fetchSuppliers = async () => {
-      // Simulated data
-      const suppliers = await fetch("/api/getSuppliers").then((res) => res.json());
-      console.log("Fetched suppliers:", suppliers);
-      setSuppliers(suppliers);
-    };
-
-    fetchSuppliers();
-
-    fetchParentProducts();
-  }, []);
+  const [variants, setVariants] = useState<VariantFormData[]>([{
+    parentProductId: "",
+    name: "",
+    size: "",
+    price: "",
+    stock: "0",
+    suppId: "",
+  }]);
 
   interface VariantFormData {
     parentProductId: string;
@@ -491,204 +727,219 @@ export function VariantForm({ onClose }: { onClose?: () => void }) {
     size: string;
     price: string;
     stock: string;
-    suppId: string | undefined;
+    suppId: string;
   }
 
-  const { register, handleSubmit, formState: { errors }, setValue, watch } = useForm<VariantFormData>({
-    defaultValues: {
+  useEffect(() => {
+    const fetchParentProducts = async () => {
+      try {
+        const products = await fetch("/api/getItems").then((res) => res.json());
+        setParentProducts(products);
+      } catch {
+        console.error("Failed to fetch products");
+      }
+    };
+
+    const fetchSuppliers = async () => {
+      try {
+        const suppliers = await fetch("/api/getSuppliers").then((res) => res.json());
+        setSuppliers(suppliers);
+      } catch {
+        console.error("Failed to fetch suppliers");
+      }
+    };
+
+    fetchSuppliers();
+    fetchParentProducts();
+  }, []);
+
+  const addVariantInstance = () => {
+    setVariants([...variants, {
       parentProductId: "",
       name: "",
       size: "",
       price: "",
       stock: "0",
       suppId: "",
+    }]);
+  };
+
+  const removeVariantInstance = (index: number) => {
+    if (variants.length > 1) {
+      setVariants(variants.filter((_, i) => i !== index));
     }
-  });
+  };
 
-  const watchParentProduct = watch("parentProductId");
-  const watchSupplier = watch("suppId");
+  const updateVariant = (index: number, field: keyof VariantFormData, value: string) => {
+    const updated = [...variants];
+    updated[index] = { ...updated[index], [field]: value };
+    setVariants(updated);
+  };
 
-  const onSubmit = async (data: VariantFormData) => {
+  const onSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     setLoading(true);
-    // Simulate API call
-    const res = await fetch("/api/addVariant", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(data),
-    });
 
-    if (!res.ok) {
-      toast.error("Failed to create variant");
+    try {
+      const promises = variants.map(async (variant) => {
+        const res = await fetch("/api/addVariant", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(variant),
+        });
+
+        if (!res.ok) {
+          throw new Error(`Failed to create variant: ${variant.name}`);
+        }
+        return variant;
+      });
+
+      await Promise.all(promises);
+
+      toast("Variants created", {
+        description: `${variants.length} variant(s) have been added successfully.`,
+      });
+
       setLoading(false);
-      return;
+      onClose?.();
+    } catch {
+      toast.error("Failed to create some variants");
+      setLoading(false);
     }
-
-    console.log("Variant data:", data);
-    toast("Variant created", {
-      description: `${data.name} variant has been added.`,
-    });
-
-    setLoading(false);
-    onClose?.();
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        {/* Header - spans full width */}
-        <div className="md:col-span-4">
-          <CardHeader>
-            <CardTitle className="text-2xl">Add Product Variant</CardTitle>
-            <CardDescription>
-              Create a new variant of an existing product
-            </CardDescription>
-          </CardHeader>
+    <div className="w-full max-w-4xl mx-auto p-3 sm:p-6">
+      <form onSubmit={onSubmit} className="space-y-4">
+        {/* Mobile-first header */}
+        <div className="text-center space-y-2 mb-6">
+          <h2 className="text-xl sm:text-2xl font-bold">Add Product Variants</h2>
+          <p className="text-sm text-muted-foreground">
+            Create variants for existing products
+          </p>
         </div>
 
-        {/* Parent Product Selection - spans 2 columns */}
-        <Card className="md:col-span-2">
-          <CardHeader>
-            <CardTitle>Parent Product</CardTitle>
-            <CardDescription>Select the product for this variant</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <FormField
-              label="Select Parent Product"
-              error={errors.parentProductId?.message}
-            >
-              <Select
-                onValueChange={(value) => setValue("parentProductId", value)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select product" />
-                </SelectTrigger>
-                <SelectContent>
-                  {parentProducts.map(product => (
-                    <SelectItem key={product.id} value={product.id}>
-                      {product.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </FormField>
-
-            {watchParentProduct && (
-              <div className="mt-4 p-3 bg-muted rounded-md">
-                <h4 className="text-sm font-medium mb-1">Selected Product:</h4>
-                <p>{parentProducts.find(p => p.id === watchParentProduct)?.name}</p>
+        {/* Variant instances */}
+        {variants.map((variant, index) => (
+          <Card key={index} className="relative">
+            <CardHeader className="pb-4">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg">Variant {index + 1}</CardTitle>
+                {variants.length > 1 && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => removeVariantInstance(index)}
+                    className="text-red-600 hover:text-red-700"
+                  >
+                    Remove
+                  </Button>
+                )}
               </div>
-            )}
-          </CardContent>
-        </Card>
-        {/* Supplier Selection - spans 2 columns */}
-        <Card className="md:col-span-2">
-          <CardHeader>
-            <CardTitle>Supplier</CardTitle>
-            <CardDescription>Select the supplier for this variant</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <FormField
-              label="Select Supplier"
-              error={errors.suppId?.message}
-            >
-              <Select
-                onValueChange={(value) => setValue("suppId", value)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select supplier" />
-                </SelectTrigger>
-                <SelectContent>
-                  {suppliers.map(supplier => (
-                    <SelectItem key={supplier.id} value={supplier.id}>
-                      {supplier.name} {`(${supplier.division})`}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </FormField>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Product and Supplier Selection - Mobile-first */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <FormField label="Parent Product" error="">
+                  <FormCombobox
+                    placeholder="Select product"
+                    items={parentProducts}
+                    value={variant.parentProductId}
+                    onValueChange={(value) => updateVariant(index, "parentProductId", value)}
+                    displayKey="name"
+                    valueKey="id"
+                  />
+                </FormField>
 
-            {watchSupplier && (
-              <div className="mt-4 p-3 bg-muted rounded-md">
-                <h4 className="text-sm font-medium mb-1">Selected Supplier:</h4>
-                <p>{suppliers.find(p => p.id === watchSupplier)?.name}</p>
-                <p className="text-xs text-muted-foreground">
-                  {suppliers.find(p => p.id === watchSupplier)?.division}
-                </p>
+                <FormField label="Supplier" error="">
+                  <FormCombobox
+                    placeholder="Select supplier"
+                    items={suppliers}
+                    value={variant.suppId}
+                    onValueChange={(value) => updateVariant(index, "suppId", value)}
+                    displayKey="name"
+                    valueKey="id"
+                  />
+                </FormField>
               </div>
-            )}
-          </CardContent>
-        </Card>
+              {/* Variant Details */}
+              <div className="space-y-4">
+                <FormField label="Variant Name" error="">
+                  <Input
+                    placeholder="Blue XL"
+                    value={variant.name}
+                    onChange={(e) => updateVariant(index, "name", e.target.value)}
+                  />
+                </FormField>
 
-        {/* Variant Details - spans full width */}
-        <Card className="md:col-span-4">
-          <CardHeader>
-            <CardTitle>Variant Details</CardTitle>
-            <CardDescription>Specify the attributes of this variant</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FormField
-                label="Variant Name"
-                error={errors.name?.message}
-              >
-                <Input
-                  placeholder="Blue XL"
-                  {...register("name", { required: "Variant name is required" })}
-                />
-              </FormField>
-            </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <FormField label="Size" error="">
+                    <Input
+                      placeholder="XL"
+                      value={variant.size}
+                      onChange={(e) => updateVariant(index, "size", e.target.value)}
+                    />
+                  </FormField>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <FormField
-                label="Size"
-                error={errors.size?.message}
-              >
-                <Input
-                  placeholder="S/M/L/XL/..."
-                  {...register("size", { required: "Size is required" })}
-                />
-              </FormField>
-            </div>
+                  <FormField label="Price (₹)" error="">
+                    <Input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder="29.00"
+                      value={variant.price}
+                      onChange={(e) => updateVariant(index, "price", e.target.value)}
+                    />
+                  </FormField>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FormField
-                label="Price (₹)"
-                error={errors.price?.message}
-              >
-                <Input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  placeholder="29.00"
-                  {...register("price", { required: "Price is required" })}
-                />
-              </FormField>
+                  <FormField label="Initial Stock" error="">
+                    <Input
+                      type="number"
+                      min="0"
+                      placeholder="0"
+                      value={variant.stock}
+                      onChange={(e) => updateVariant(index, "stock", e.target.value)}
+                    />
+                  </FormField>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
 
-              <FormField
-                label="Inventory Count"
-              >
-                <Input
-                  type="number"
-                  min="0"
-                  placeholder="0"
-                  {...register("stock")}
-                />
-              </FormField>
-            </div>
-          </CardContent>
-          <CardFooter className="flex justify-end">
+        {/* Action buttons - mobile-first layout */}
+        <div className="flex flex-col sm:flex-row gap-3 pt-4">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={addVariantInstance}
+            className="w-full sm:w-auto"
+          >
+            Add Another Variant
+          </Button>
+          
+          <div className="flex gap-2 sm:ml-auto">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
+              className="flex-1 sm:w-auto"
+            >
+              Cancel
+            </Button>
             <Button
               type="submit"
-              size="lg"
-              disabled={loading || !watchParentProduct || !watchSupplier}
+              disabled={loading || variants.some(v => !v.parentProductId || !v.suppId)}
+              className="flex-1 sm:w-auto"
             >
-              {loading ? "Creating Variant..." : "Create Variant"}
+              {loading ? "Creating..." : `Create ${variants.length} Variant${variants.length > 1 ? 's' : ''}`}
             </Button>
-          </CardFooter>
-        </Card>
-      </div>
-    </form>
+          </div>
+        </div>
+      </form>
+    </div>
   );
 }

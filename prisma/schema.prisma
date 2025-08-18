@@ -88,26 +88,36 @@ model Variants {
 }
 
 model Order {
-  id           String        @id @default(cuid())
-  customerId   String
-  order_date   DateTime      @default(now())
-  total_amount Float
-  status       String        @default("pending")
-  notes        String?
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  customer     Customer      @relation(fields: [customerId], references: [id])
-  items        order_items[]
+  id            String        @id @default(cuid())
+  order_date    DateTime      @default(now())
+  customerId    String
+  total_amount  Float
+  status        String        @default("pending")
+  notes         String?
+  subtotal      Float
+  discountType  String        @default("none")
+  discount      Float         @default(0)
+  csgt          Float         @default(0)
+  sgst          Float         @default(0)
+  igst          Float         @default(0)
+  taxableAmount Float         @default(0)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  customer      Customer      @relation(fields: [customerId], references: [id])
+  items         order_items[]
 }
 
 model order_items {
-  orderId   String
-  variantId String
-  quantity  Int
-  price     Float
-  id        String   @id @default(cuid())
-  order     Order    @relation(fields: [orderId], references: [id])
-  variant   Variants @relation(fields: [variantId], references: [id])
+  id           String   @id @default(cuid())
+  orderId      String
+  variantId    String
+  quantity     Int
+  rate         Float
+  discountType String   @default("none")
+  discount     Float    @default(0)
+  total        Float
+  order        Order    @relation(fields: [orderId], references: [id])
+  variant      Variants @relation(fields: [variantId], references: [id])
 
   @@unique([orderId, variantId])
   @@index([orderId])

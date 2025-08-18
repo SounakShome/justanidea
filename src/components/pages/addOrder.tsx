@@ -47,7 +47,6 @@ type OrderItem = {
     id: string;
     quantity: number;
     rate: number;
-    discount: number;
     total: number;
 };
 
@@ -59,12 +58,6 @@ type FormValues = {
     notes?: string;
     items: OrderItem[];
     subTotal: number;
-    discountType: 'percentage' | 'amount';
-    discount: number;
-    taxableAmount: number;
-    tax: string;
-    cgst?: number;
-    sgst?: number;
     totalAmount: number;
 };
 
@@ -95,7 +88,7 @@ export default function AddOrder({ products }: AddOrderProps) {
     const [isLoadingCustomers, setIsLoadingCustomers] = useState(false);
     const [customerComboOpen, setCustomerComboOpen] = useState(false);
 
-    const { register, handleSubmit, setValue, getValues, watch, formState: { errors } } = useForm<FormValues>({
+    const { register, handleSubmit, setValue, getValues, reset, watch, formState: { errors } } = useForm<FormValues>({
         defaultValues: {
             invoiceNo: "",
             orderDate: new Date(),
@@ -104,12 +97,6 @@ export default function AddOrder({ products }: AddOrderProps) {
             notes: "",
             items: [],
             subTotal: 0,
-            discountType: 'percentage',
-            discount: 0,
-            taxableAmount: 0,
-            tax: "18",
-            cgst: 0,
-            sgst: 0,
             totalAmount: 0,
         },
     });
@@ -152,37 +139,8 @@ export default function AddOrder({ products }: AddOrderProps) {
         }, 0);
     };
 
-    const calculateDiscount = () => {
-        const discount = watch("discount") || 0;
-        const discountType = watch("discountType") || 'percentage';
-        
-        if (discountType === 'percentage') {
-            return (calculateSubtotal() * discount) / 100;
-        } else {
-            return discount;
-        }
-    };
-
-    const calculateTaxableAmount = () => {
-        return calculateSubtotal() - calculateDiscount();
-    };
-
-    const calculateCGST = () => {
-        const cgstRate = parseFloat(watch("cgst")?.toString() || "0");
-        return (calculateTaxableAmount() * cgstRate) / 100;
-    };
-
-    const calculateSGST = () => {
-        const sgstRate = parseFloat(watch("sgst")?.toString() || "0");
-        return (calculateTaxableAmount() * sgstRate) / 100;
-    };
-
-    const calculateTotalTax = () => {
-        return calculateCGST() + calculateSGST();
-    };
-
     const calculateTotal = () => {
-        return calculateTaxableAmount() + calculateTotalTax();
+        return calculateSubtotal();
     };
 
     // Update item calculations
@@ -191,7 +149,7 @@ export default function AddOrder({ products }: AddOrderProps) {
         const item = currentItems[index];
         if (item) {
             item.quantity = quantity;
-            item.total = (item.rate * quantity) - item.discount;
+            item.total = item.rate * quantity;
             setValue("items", currentItems);
         }
     };
@@ -201,17 +159,7 @@ export default function AddOrder({ products }: AddOrderProps) {
         const item = currentItems[index];
         if (item) {
             item.rate = rate;
-            item.total = (rate * item.quantity) - item.discount;
-            setValue("items", currentItems);
-        }
-    };
-
-    const updateItemDiscount = (index: number, discount: number) => {
-        const currentItems = [...watchItems];
-        const item = currentItems[index];
-        if (item) {
-            item.discount = discount;
-            item.total = (item.rate * item.quantity) - discount;
+            item.total = rate * item.quantity;
             setValue("items", currentItems);
         }
     };
@@ -231,19 +179,11 @@ export default function AddOrder({ products }: AddOrderProps) {
         try {
             // Calculate final totals
             const subTotal = calculateSubtotal();
-            const taxableAmount = calculateTaxableAmount();
-            const cgstAmount = calculateCGST();
-            const sgstAmount = calculateSGST();
             const totalAmount = calculateTotal();
             
             const orderData = {
                 ...data,
                 subTotal,
-                discount: watch("discount") || 0,
-                discountType: watch("discountType") || 'percentage',
-                taxableAmount,
-                cgst: cgstAmount,
-                sgst: sgstAmount,
                 totalAmount,
             };
             
@@ -266,8 +206,20 @@ export default function AddOrder({ products }: AddOrderProps) {
                 duration: 5000,
             });
 
-            // Reset form or redirect as needed
-            // You might want to redirect to orders list or reset the form
+            // Reset form after successful submission
+            reset({
+                invoiceNo: "",
+                orderDate: new Date(),
+                customerId: "",
+                status: "pending",
+                notes: "",
+                items: [],
+                subTotal: 0,
+                totalAmount: 0,
+            });
+
+            setSelectedCustomer(null);
+
             
         } catch (error) {
             console.error("Error creating order:", error);
@@ -462,7 +414,6 @@ export default function AddOrder({ products }: AddOrderProps) {
                                                 id: variant.id,
                                                 quantity: quantity,
                                                 rate: variant.price,
-                                                discount: 0,
                                                 total: variant.price * quantity
                                             };
                                             
@@ -505,8 +456,8 @@ export default function AddOrder({ products }: AddOrderProps) {
                                                                 </Button>
                                                             </div>
                                                             
-                                                            {/* Input fields - 2x2 grid on mobile, responsive on larger screens */}
-                                                            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+                                                            {/* Input fields - 3 columns for quantity, rate, and amount */}
+                                                            <div className="grid grid-cols-3 gap-2">
                                                                 <div>
                                                                     <label className="text-xs text-muted-foreground">Qty</label>
                                                                     <Input
@@ -529,18 +480,6 @@ export default function AddOrder({ products }: AddOrderProps) {
                                                                     />
                                                                 </div>
                                                                 <div>
-                                                                    <label className="text-xs text-muted-foreground">Discount</label>
-                                                                    <Input
-                                                                        type="number"
-                                                                        min="0"
-                                                                        step="0.01"
-                                                                        value={item.discount === 0 ? "" : item.discount}
-                                                                        onChange={(e) => updateItemDiscount(index, parseFloat(e.target.value) || 0)}
-                                                                        className="h-9 text-sm"
-                                                                        placeholder="0"
-                                                                    />
-                                                                </div>
-                                                                <div>
                                                                     <label className="text-xs text-muted-foreground">Amount</label>
                                                                     <div className="h-9 flex items-center">
                                                                         <p className="font-medium text-sm">₹{item.total.toFixed(2)}</p>
@@ -559,73 +498,13 @@ export default function AddOrder({ products }: AddOrderProps) {
 
                         <TabsContent value="summary" className="space-y-4">
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                                {/* Tax and Pricing */}
+                                {/* Notes Section */}
                                 <Card>
                                     <CardHeader>
-                                        <CardTitle>Tax & Pricing</CardTitle>
-                                        <CardDescription>Configure taxes and discounts</CardDescription>
+                                        <CardTitle>Notes</CardTitle>
+                                        <CardDescription>Add any special instructions</CardDescription>
                                     </CardHeader>
                                     <CardContent className="space-y-3">
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                            <div>
-                                                <label className="block text-sm font-medium mb-1">Discount Type</label>
-                                                <Select
-                                                    value={watch("discountType")}
-                                                    onValueChange={(value: 'percentage' | 'amount') => setValue("discountType", value)}
-                                                >
-                                                    <SelectTrigger className="h-10">
-                                                        <SelectValue placeholder="Select discount type" />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        <SelectItem value="percentage">Percentage (%)</SelectItem>
-                                                        <SelectItem value="amount">Amount (₹)</SelectItem>
-                                                    </SelectContent>
-                                                </Select>
-                                            </div>
-
-                                            <div>
-                                                <label className="block text-sm font-medium mb-1">
-                                                    Discount {watch("discountType") === 'percentage' ? '(%)' : '(₹)'}
-                                                </label>
-                                                <Input
-                                                    type="number"
-                                                    min="0"
-                                                    step="0.01"
-                                                    {...register("discount")}
-                                                    placeholder="0"
-                                                    className="h-10"
-                                                />
-                                            </div>
-                                        </div>
-
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                            <div>
-                                                <label className="block text-sm font-medium mb-1">CGST (%)</label>
-                                                <Input
-                                                    type="number"
-                                                    min="0"
-                                                    step="0.01"
-                                                    value={watch("cgst") || 0}
-                                                    onChange={(e) => setValue("cgst", parseFloat(e.target.value) || 0)}
-                                                    placeholder="0"
-                                                    className="h-10"
-                                                />
-                                            </div>
-
-                                            <div>
-                                                <label className="block text-sm font-medium mb-1">SGST (%)</label>
-                                                <Input
-                                                    type="number"
-                                                    min="0"
-                                                    step="0.01"
-                                                    value={watch("sgst") || 0}
-                                                    onChange={(e) => setValue("sgst", parseFloat(e.target.value) || 0)}
-                                                    placeholder="0"
-                                                    className="h-10"
-                                                />
-                                            </div>
-                                        </div>
-
                                         <div>
                                             <label className="block text-sm font-medium mb-1">Notes</label>
                                             <textarea
@@ -648,26 +527,6 @@ export default function AddOrder({ products }: AddOrderProps) {
                                             <div className="flex justify-between text-sm">
                                                 <span>Subtotal:</span>
                                                 <span>₹{calculateSubtotal().toFixed(2)}</span>
-                                            </div>
-                                            
-                                            <div className="flex justify-between text-sm">
-                                                <span>Discount:</span>
-                                                <span>-₹{calculateDiscount().toFixed(2)}</span>
-                                            </div>
-                                            
-                                            <div className="flex justify-between text-sm">
-                                                <span>Taxable Amount:</span>
-                                                <span>₹{calculateTaxableAmount().toFixed(2)}</span>
-                                            </div>
-                                            
-                                            <div className="flex justify-between text-sm">
-                                                <span>CGST ({watch("cgst") || 0}%):</span>
-                                                <span>₹{calculateCGST().toFixed(2)}</span>
-                                            </div>
-                                            
-                                            <div className="flex justify-between text-sm">
-                                                <span>SGST ({watch("sgst") || 0}%):</span>
-                                                <span>₹{calculateSGST().toFixed(2)}</span>
                                             </div>
                                             
                                             <Separator />

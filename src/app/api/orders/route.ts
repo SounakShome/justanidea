@@ -3,19 +3,20 @@ import { prisma } from '@/lib/prisma';
 export async function POST(req: Request) {
   const data = await req.json();
 
-  const { customerId, items, notes, total } = data;
-
   const order = await prisma.order.create({
     data: {
-      customer: { connect: { id: customerId } },
-      order_date: new Date(),
-      total_amount: total,
-      notes: notes,
+      id: data.invoiceNo,
+      customer: { connect: { id: data.customerId } },
+      order_date: data.orderDate,
+      subtotal: data.subTotal,
+      total_amount: data.totalAmount,
+      notes: data.notes,
       items: {
-        create: items.map((item: { variantId: string; quantity: number; price: number }) => ({
-          variant: { connect: { id: item.variantId } },
+        create: data.items.map((item: { id: string; quantity: number; rate: number; total: number }) => ({
+          variant: { connect: { id: item.id } },
           quantity: item.quantity,
-          price: item.price,
+          rate: item.rate,
+          total: item.total,
         })),
       },
     },
@@ -55,6 +56,7 @@ export async function GET() {
       },
     });
 
+
     // Transform the data to match the frontend interface
     const transformedOrders = orders.map(order => ({
       id: order.id.toString(),
@@ -63,18 +65,30 @@ export async function GET() {
       amount: parseFloat(order.total_amount.toString()),
       status: order.status as 'pending' | 'review' | 'approved',
       items: order.items.map(item => ({
-        product: item.variant.product?.name || item.variant.name || 'Unknown Product',
+        product: `${item.variant.product?.name || 'Unknown Product'} - ${item.variant.name}`,
         requestedQty: item.quantity,
         availableQty: item.variant.stock || 0,
+        rate: parseFloat(item.rate.toString()),
+        discount: parseFloat(item.discount?.toString() || '0'),
+        discountType: (item.discountType as 'percentage' | 'amount' | 'none') || 'none',
         productId: item.variant.product?.id,
         variantId: item.variant.id,
-        price: parseFloat(item.price.toString()),
       })),
+      billDiscount: {
+        type: (order.discountType as 'percentage' | 'amount') || 'amount',
+        value: parseFloat(order.discount.toString()) || undefined,
+      },
+      taxConfig: {
+        type: (order.igst > 0 ? 'igst' : 'cgst_sgst') as 'igst' | 'cgst_sgst',
+        igstRate: parseFloat(order.igst.toString()) || undefined,
+        cgstRate: parseFloat(order.csgt.toString()) || undefined,
+        sgstRate: parseFloat(order.sgst.toString()) || undefined,
+      },
       notes: order.notes,
       customerId: order.customer.id,
     }));
 
-    return Response.json(transformedOrders);
+    return Response.json({transformedOrders});
   } catch (error) {
     console.error('Error fetching orders:', error);
     return Response.json(

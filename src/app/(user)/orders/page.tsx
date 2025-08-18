@@ -1,6 +1,7 @@
 import Orders from "@/components/pages/order";
 import { Suspense } from "react";
 import Loading from "@/app/(user)/loading";
+import { auth } from "@/auth";
 
 export async function generateMetadata() {
     return {
@@ -10,10 +11,10 @@ export async function generateMetadata() {
 }
 
 export default async function Page() {
-    await new Promise((resolve) => setTimeout(resolve, 3000)); // Simulate a delay for demonstration
+    const session = await auth();
     return (
         <Suspense fallback={<Loading />}>
-            <Orders />
+            <Orders session={session} />
         </Suspense>
     );
 }

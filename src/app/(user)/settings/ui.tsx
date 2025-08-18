@@ -7,9 +7,18 @@ import Company from "./company/page";
 import Notifications from "./notifications/page";
 import Menubar from "@/components/menubar";
 
+interface CompanyData {
+  Name: string;
+  Industry: string;
+  GSTIN: string;
+  CompanySize: string;
+  Address: string;
+  CompanyWebsite: string;
+}
+
 interface SessionData {
   user: {
-    company: object; 
+    company: CompanyData; 
   };
 }
 

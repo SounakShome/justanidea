@@ -1,6 +1,9 @@
-import Product from "@/models/products";
+import { prisma } from "@/prisma";
 
 export async function getDashboardData() {
-    const products = await Product.find({}).sort({ createdAt: -1 }).limit(10).lean();
+    const products = await prisma.product.findMany({
+        orderBy: { createdAt: 'desc' },
+        take: 10,
+    });
     return products;
 }

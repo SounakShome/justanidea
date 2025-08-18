@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/ban-ts-comment */
-// @ts-ignore
 import NextAuth from "next-auth"
 import Credentials from "next-auth/providers/credentials"
 import { getUserFromDb } from "@/utils/auth"

@@ -6,15 +6,12 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(req: Request) {
-    const { searchParams } = new URL(req.url);
-    const email = searchParams.get("email");
-    console.log("email", email);
-
     const session = await auth();
-    if (!session?.user) {
+    if (!session?.user?.email) {
         return NextResponse.redirect(new URL("/login", req.url));
     }
-    const companies = await getCompaniesFromDb();
+    
+    const companies = await getCompaniesFromDb(session.user.email);
     return NextResponse.json(companies);
 }
 
@@ -23,7 +20,7 @@ export async function POST(req: Request) {
     const data = await req.json();
     console.log("data", data);
     const session = await auth();
-    if (!session?.user) {
+    if (!session?.user?.email) {
         return NextResponse.redirect(new URL("/login", req.url));
     }
 

@@ -59,7 +59,7 @@ export const getUserFromDb = async (email: string, password: string) => {
   }
 };
 
-const getCompaniesFromDb = async (email: string) => {
+export const getCompaniesFromDb = async (email: string) => {
   try {
     const companies = await prisma.company.findFirst({
       where: {

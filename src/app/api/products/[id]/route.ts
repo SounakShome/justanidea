@@ -1,22 +1,38 @@
 import { prisma } from '@/lib/prisma';
 
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
-  const body = await req.json();
-  const updated = await prisma.products.update({
-    where: { product_id: params.id },
-    data: {
-      name: body.name,
-      description: body.description,
-      brand: body.brand,
-      categoryId: body.categoryId,
+export async function GET(req: Request, { params }: { params: { id: string } }) {
+  const product = await prisma.products.findUnique({
+    where: { id: params.id },
+    include: {
+      variants: true,
     },
   });
-  return Response.json(updated);
+
+  if (!product) {
+    return Response.json({ error: 'Product not found' }, { status: 404 });
+  }
+
+  return Response.json(product);
+}
+
+export async function PUT(req: Request, { params }: { params: { id: string } }) {
+  const body = await req.json();
+
+  const product = await prisma.products.update({
+    where: { id: params.id },
+    data: {
+      name: body.name,
+      HSN: body.HSN,
+    },
+  });
+
+  return Response.json(product);
 }
 
 export async function DELETE(req: Request, { params }: { params: { id: string } }) {
   await prisma.products.delete({
-    where: { product_id: params.id },
+    where: { id: params.id },
   });
-  return new Response(null, { status: 204 });
+
+  return Response.json({ message: 'Product deleted successfully' });
 }

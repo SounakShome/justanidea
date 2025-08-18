@@ -3,7 +3,6 @@ import { prisma } from '@/lib/prisma';
 export async function GET() {
   const products = await prisma.products.findMany({
     include: {
-      category: true,
       variants: true,
     },
   });
@@ -16,14 +15,9 @@ export async function POST(req: Request) {
   const product = await prisma.products.create({
     data: {
       name: body.name,
-      description: body.description,
-      brand: body.brand,
-      category: {
-        connect: { castegory_id: body.categoryId },
-      },
+      HSN: body.HSN,
     },
   });
 
   return Response.json(product);
 }
-

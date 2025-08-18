@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Profile from "./profile/page";
 import Account from "./account/page";
-import Company from "./company/page";
+import Company from "@/components/company";
 import Notifications from "./notifications/page";
 import Menubar from "@/components/menubar";
 

@@ -55,7 +55,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       notes: order.notes,
       subTotal: parseFloat(order.subtotal.toString()),
       totalAmount: parseFloat(order.total_amount.toString()),
-      items: order.items.map(item => ({
+      items: order.items.map((item: any) => ({
         id: item.variant.id,
         quantity: item.quantity,
         rate: parseFloat(item.rate.toString()),

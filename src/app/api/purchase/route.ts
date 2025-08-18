@@ -1,5 +1,3 @@
-"use server";
-
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
@@ -16,7 +14,7 @@ export async function POST(req: NextRequest) {
         const data = await req.json();
         console.log("Received purchase data:", data);
 
-        const result = await prisma.$transaction(async (tx) => {
+        const result = await prisma.$transaction(async (tx: any) => {
             const purchaseOrder = await tx.purchaseOrder.create({
                 data: {
                     invoiceNo: data.invoiceNo,

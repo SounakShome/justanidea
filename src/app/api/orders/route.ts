@@ -58,13 +58,13 @@ export async function GET() {
 
 
     // Transform the data to match the frontend interface
-    const transformedOrders = orders.map(order => ({
+    const transformedOrders = orders.map((order: any) => ({
       id: order.id.toString(),
       customerName: order.customer.name,
       date: order.order_date.toISOString().split('T')[0], // Format as YYYY-MM-DD
       amount: parseFloat(order.total_amount.toString()),
       status: order.status as 'pending' | 'review' | 'approved',
-      items: order.items.map(item => ({
+      items: order.items.map((item: any) => ({
         product: `${item.variant.product?.name || 'Unknown Product'} - ${item.variant.name}`,
         requestedQty: item.quantity,
         availableQty: item.variant.stock || 0,

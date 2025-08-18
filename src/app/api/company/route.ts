@@ -1,5 +1,3 @@
-"use server";
-
 import { NextResponse } from "next/server";
 import { getCompaniesFromDb } from "@/utils/auth";
 import { auth } from "@/auth";

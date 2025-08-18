@@ -1,9 +1,9 @@
 import { prisma } from '@/lib/prisma';
 
 
-export async function GET(req: Request, { params }: { params: { id: string } }) {
+export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const orderId = params.id;
+    const { id: orderId } = await params;
 
     const order = await prisma.order.findUnique({
       where: { id: orderId },
@@ -85,10 +85,10 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
   }
 }
 
-export async function PUT(req: Request, { params }: { params: { id: string } }) {
+export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const data = await req.json();
-    const orderId = params.id;
+    const { id: orderId } = await params;
 
     console.log('Updating order:', orderId, 'with data:', data);
 
@@ -175,9 +175,9 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
   }
 }
 
-export async function DELETE(req: Request, { params }: { params: { id: string } }) {
+export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const orderId = params.id;
+    const { id: orderId } = await params;
 
     // Delete order items first (due to foreign key constraints)
     await prisma.order_items.deleteMany({

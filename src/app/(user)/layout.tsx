@@ -9,7 +9,7 @@ export async function generateMetadata() {
   const session = await auth();
   
   return {
-    title: session?.user?.company?.Name || "Dashboard",
+    title: (session?.user as any)?.company?.Name || "Dashboard",
     description: `This is the dashboard page.`,
   };
 }
@@ -22,7 +22,7 @@ export default async function RootLayout({
 }>) {
   const session = await auth();
 
-  if (session?.user && session.user.company == null) {
+  if (session?.user && (session.user as any).company == null) {
     redirect('/company');
   }
 
@@ -45,7 +45,7 @@ export default async function RootLayout({
   return (
     <div className="w-full">
       <SidebarProvider className="flex flex-row">
-        <AppSidebar companyName={session.user.company?.Name || "Company"} userData={userData} variant="inset" />
+        <AppSidebar companyName={(session.user as any).company?.Name || "Company"} userData={userData} variant="inset" />
         <div className="mt-2 flex flex-1 flex-col">
           <SidebarInset>
             <div className="pt-2 flex flex-1 flex-col">

@@ -6,7 +6,6 @@ import { Loading } from "@/app/(user)/dashboard/load"
 
 import data from "./data.json"
 import { Suspense } from "react"
-import { getUserFromDb } from "@/utils/auth"
 
 export async function generateMetadata() {
   return {
@@ -17,12 +16,6 @@ export async function generateMetadata() {
 
 
 export default async function Page() {
-
-  await getUserFromDb("sounakshome@gmail.com", "Sounak@2004").then((user) => {
-    if (!user) {
-      // redirect('/login')
-    }
-  });
 
   return (
     <>

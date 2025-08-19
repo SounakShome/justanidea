@@ -13,12 +13,6 @@ export default async function Company() {
     if (!session) {
         redirect('/login')
     }
-
-    await getUserFromDb("sounakshome@gmail.com", "Sounak@2004").then((user) => {
-        if (!user) {
-            // redirect('/login')
-        }
-    });
     
     if (session?.user?.role !== 'admin') {
         redirect('/dashboard')

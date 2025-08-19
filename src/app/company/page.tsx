@@ -2,13 +2,10 @@ import React from 'react'
 import { auth } from '@/auth';
 import { redirect } from 'next/navigation';
 import CompanyForm from '@/components/company'
-import { getUserFromDb } from '@/utils/auth';
 
 export default async function Company() {
 
     const session = await auth();
-
-    console.log('session', session)
 
     if (!session) {
         redirect('/login')

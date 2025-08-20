@@ -10,8 +10,8 @@ export default async function Company() {
     if (!session) {
         redirect('/login')
     }
-    
-    if (session?.user?.role !== 'admin') {
+
+    if (session?.user?.role.toLowerCase() !== 'admin') {
         redirect('/dashboard')
     }
 

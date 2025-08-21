@@ -15,55 +15,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Trash2, Check, ChevronsUpDown } from "lucide-react";
 import { NewOrderLine } from "@/components/NewOrderLine";
 import { cn } from "@/lib/utils";
-
-// Types based on Prisma schema
-type Customer = {
-    id: string;
-    name: string;
-    phone: string;
-    address: string;
-    GSTIN: string;
-    State_Name: string;
-    Code: number;
-};
-
-type Product = {
-    id: string;
-    name: string;
-    HSN: number;
-    variants: Variant[];
-};
-
-type Variant = {
-    id: string;
-    name: string;
-    size: string;
-    price: number;
-    stock: number;
-    productId: string;
-};
-
-type OrderItem = {
-    id: string;
-    quantity: number;
-    rate: number;
-    total: number;
-};
-
-type FormValues = {
-    invoiceNo: string;
-    orderDate: Date;
-    customerId: string;
-    status: string;
-    notes?: string;
-    items: OrderItem[];
-    subTotal: number;
-    totalAmount: number;
-};
-
-interface AddOrderProps {
-    products: Product[];
-}
+import { AddOrderProps, Customer, FormValues, Product, OrderItem, Variant } from "@/types/addOrder"
 
 const fetchCustomers = async (): Promise<Customer[]> => {
     try {

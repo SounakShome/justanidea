@@ -24,7 +24,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       if (user) {
         token.role = user.role
         token.username = user.username
-        token.company = user.company || null
+        token.companyId = user.companyId || null
+        token.onboarded = user.onboarded || false
+        token.verified = user.verified || false
       }
       return token;
     },
@@ -33,9 +35,29 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       if (session.user) {
         session.user.role = token.role as string
         session.user.username = token.username as string
-        session.user.company = token.company as string | null
+        session.user.companyId = token.companyId as string | null
+        session.user.onboarded = token.onboarded as boolean
+        session.user.verified = token.verified as boolean
       }
       return session
+    },
+    // @ts-ignore
+    redirect({ url, baseUrl }) {
+      // Always redirect to the configured base URL (dev tunnel or localhost)
+      const configuredUrl = process.env.NEXTAUTH_URL || baseUrl
+      
+      // If url is relative, make it absolute using the configured URL
+      if (url.startsWith('/')) {
+        return `${configuredUrl}${url}`
+      }
+      
+      // If url is absolute and matches our domain, allow it
+      if (url.startsWith(configuredUrl)) {
+        return url
+      }
+      
+      // Default to dashboard
+      return `${configuredUrl}/dashboard`
     },
   },
   pages: {

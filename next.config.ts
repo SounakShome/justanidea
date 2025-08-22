@@ -30,9 +30,20 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  // Fix for dev tunnels and Server Actions
+  experimental: {
+    serverActions: {
+      allowedOrigins: [
+        'localhost:3000',
+        '*.devtunnels.ms', // Allow dev tunnels
+        '*.inc1.devtunnels.ms', // Specific to your tunnel
+      ],
+    },
+  },
   allowedDevOrigins: [
     'http://localhost:3000',
     'http://192.168.91.92:3000',
+    'https://lwhnw04g-3000.inc1.devtunnels.ms', // Add your dev tunnel
   ],
 };
 

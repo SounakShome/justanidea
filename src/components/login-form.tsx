@@ -30,7 +30,11 @@ export function LoginForm({
         e.preventDefault();
         // Handle login logic here
         setLoading(true);
-        await signIn("credentials", { email, password }, { redirect: false });
+        await signIn("credentials", { 
+            email, 
+            password,
+            redirectTo: "/dashboard" // Ensure redirect to dashboard
+        });
         setLoading(false);
     };
 

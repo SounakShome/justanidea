@@ -8,8 +8,20 @@ declare module "next-auth" {
       name?: string | null
       email?: string | null
       image?: string | null
-      role?: string  
-      company?: string | null
+      username?: string
+      role?: 'ADMIN' | 'SALESMAN'
+      verified?: boolean
+      onboarded?: boolean
+      companyId?: string | null
+      company?: {
+        id: string
+        Name: string
+        Industry: string
+        GSTIN: string
+        CompanySize: string
+        Address: string
+        CompanyWebsite?: string | null
+      } | null
     }
   }
 
@@ -17,6 +29,21 @@ declare module "next-auth" {
    * Extends the built-in User types
    */
   interface User {
-    role?: string  
+    id?: string
+    username?: string
+    email?: string
+    role?: 'ADMIN' | 'SALESMAN'
+    verified?: boolean
+    onboarded?: boolean
+    companyId?: string | null
+    company?: {
+      id: string
+      Name: string
+      Industry: string
+      GSTIN: string
+      CompanySize: string
+      Address: string
+      CompanyWebsite?: string | null
+    } | null
   }
 }

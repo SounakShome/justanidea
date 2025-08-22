@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, use } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -15,6 +15,7 @@ import { Plus, Search, Calendar, Package, RefreshCw, Hash, X, Download } from "l
 import { Order, OrderStatus } from "@/types/order";
 import { Session } from "next-auth";
 import { generateOrderPDF } from "@/utils/pdfGenerator";
+import { useCompanyStore } from "@/store/companyStore"
 
 // Form schema for order editing
 const orderFormSchema = z.object({
@@ -53,6 +54,10 @@ export default function OrdersPage({session}: {session: Session}) {
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'items' | 'discounts' | 'notes'>('items');
   const [isSaving, setIsSaving] = useState(false);
+
+  const { company } = useCompanyStore();
+
+  console.log("Company:", company);
 
   // Initialize React Hook Form
   const form = useForm<OrderFormValues>({

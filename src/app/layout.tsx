@@ -2,11 +2,9 @@ import './globals.css';
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import { ThemeProvider } from "@/components/theme-provider";
-import { SessionProvider } from "next-auth/react";
-import { StoreProvider } from '@/components/providers/StoreProvider';
+import { Providers } from '@/components/providers/Providers';
 
 const inter = Inter({ subsets: ['latin'] });
-
 
 export const metadata: Metadata = {
   title: 'StockMaster - Inventory Management System',
@@ -20,19 +18,17 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <SessionProvider>
-        <body className={inter.className}>
-          <StoreProvider>
-            <ThemeProvider
-              attribute="class"
-              defaultTheme="light"
-              enableSystem
-            >
-              {children}
-            </ThemeProvider>
-          </StoreProvider>
-        </body>
-      </SessionProvider>
+      <body className={inter.className}>
+        <Providers>
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="light"
+            enableSystem
+          >
+            {children}
+          </ThemeProvider>
+        </Providers>
+      </body>
     </html>
   );
 }

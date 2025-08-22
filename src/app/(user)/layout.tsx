@@ -4,10 +4,11 @@ import { Toaster } from "@/components/ui/sonner";
 import { auth } from "@/auth";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { AuthSyncProvider } from "@/components/providers/AuthSyncProvider";
 
 export async function generateMetadata() {
   const session = await auth();
-  
+
   return {
     title: (session?.user as any)?.company?.Name || "Dashboard",
     description: `This is the dashboard page.`,
@@ -22,7 +23,7 @@ export default async function RootLayout({
 }>) {
   const session = await auth();
 
-  if (session?.user && (session.user as any).company == null) {
+  if (session?.user && (session.user as any).companyId == null) {
     redirect('/company');
   }
 
@@ -39,26 +40,28 @@ export default async function RootLayout({
   const userData = {
     name: session.user.username || "User",
     email: session.user.email || "",
-    image: session.user.image || "./next.svg",
+    image: session.user.image || "/next.svg",
   }
 
   return (
-    <div className="w-full">
-      <SidebarProvider className="flex flex-row">
-        <AppSidebar companyName={(session.user as any).company?.Name || "Company"} userData={userData} variant="inset" />
-        <div className="mt-2 flex flex-1 flex-col">
-          <SidebarInset>
-            <div className="pt-2 flex flex-1 flex-col">
-              <div className="@container/main flex flex-1 flex-col gap-2">
-                <div className="flex flex-col gap-4 md:gap-6">
-                  {children}
-                  <Toaster />
+    <AuthSyncProvider session={session}>
+      <div className="w-full">
+        <SidebarProvider className="flex flex-row">
+          <AppSidebar companyName={(session.user as any).company?.Name || "Company"} userData={userData} variant="inset" />
+          <div className="mt-2 flex flex-1 flex-col">
+            <SidebarInset>
+              <div className="pt-2 flex flex-1 flex-col">
+                <div className="@container/main flex flex-1 flex-col gap-2">
+                  <div className="flex flex-col gap-4 md:gap-6">
+                    {children}
+                    <Toaster />
+                  </div>
                 </div>
               </div>
-            </div>
-          </SidebarInset>
-        </div>
-      </SidebarProvider>
-    </div>
+            </SidebarInset>
+          </div>
+        </SidebarProvider>
+      </div>
+    </AuthSyncProvider>
   );
 }

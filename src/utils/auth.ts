@@ -47,10 +47,14 @@ export const getUserFromDb = async (email: string, password: string) => {
     const company = await getCompaniesFromDb(email);
     
     const deets = {
+      id: user.id, // Add the user ID
       username: user.username,
       email: user.email,
       role: user.role,
-      company: company,
+      verified: user.verified || false,
+      onboarded: user.onboarded || false,
+      companyId: company?.id || null,
+      company: company || null, // Include the full company object
     };
     return deets;
   } catch (error) {
@@ -70,9 +74,9 @@ export const getCompaniesFromDb = async (email: string) => {
         },
       },
     });
-    return companies;
+    return companies; // This will be the company object or null
   } catch (error) {
     console.error("Error fetching companies from DB:", error);
-    return [];
+    return null; // Return null instead of empty array
   }
 };

@@ -15,7 +15,7 @@ import DatePicker from "@/components/ui/datePicker";
 import { Package, Plus, Search, Trash2 } from "lucide-react";
 import { SiteHeader } from "../site-header";
 import Loading from "@/app/loading"
-import { Product, PurchaseFormValues, PurchaseItem, Supplier, Variants } from "@/types/addPurchases";
+import { PurchaseFormValues, Supplier, Variants } from "@/types/addPurchases";
 
 const getSuppliers = async (): Promise<Supplier[]> => {
     // Simulate API delay

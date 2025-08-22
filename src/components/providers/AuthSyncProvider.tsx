@@ -1,8 +1,10 @@
 'use client'
 
 import { useEffect, ReactNode } from 'react'
-import { useCompanyStore } from '@/store/companyStore'
+import { useCompanyStore } from '@/store'
 import { getCompaniesFromDb } from '@/utils/auth'
+import { useInventoryStore } from '@/store'
+import { Product } from '@/types/inventory'
 
 interface AuthSyncProviderProps {
   children: ReactNode
@@ -14,7 +16,23 @@ interface AuthSyncProviderProps {
  */
 export function AuthSyncProvider({ children, session }: AuthSyncProviderProps) {
   const { setCompany, clearCompany } = useCompanyStore()
-  
+  const { setProducts } = useInventoryStore();
+
+  const fetchInventoryItems = async (): Promise<Product[]> => {
+      try {
+          const response = await fetch("/api/getItems");
+          if (!response.ok) {
+              throw new Error(`Failed to fetch inventory: ${response.status}`);
+          }
+          const data = await response.json();
+          return data || [];
+      } catch (error) {
+          console.error("Error fetching inventory:", error);
+          throw error; // Re-throw error to be handled by calling function
+      }
+  };
+
+  //storing company data
   useEffect(() => {
     async function syncCompanyData() {
       if (session?.user) {
@@ -41,6 +59,22 @@ export function AuthSyncProvider({ children, session }: AuthSyncProviderProps) {
 
     syncCompanyData()
   }, [session, setCompany, clearCompany])
+
+  //storing inventory data
+  useEffect(() => {
+    async function syncInventoryData() {
+      if (session?.user) {
+        try {
+          const inventoryData = await fetchInventoryItems();
+          setProducts(inventoryData);
+        } catch (error) {
+          console.error('Error fetching inventory data:', error);
+        }
+      }
+    }
+
+    syncInventoryData()
+  }, [session, setProducts])
 
   return <>{children}</>
 }

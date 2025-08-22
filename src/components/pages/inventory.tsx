@@ -12,27 +12,28 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { ExtendedVariant, Product } from "@/types/inventory";
-
-const fetchInventoryItems = async (): Promise<Product[]> => {
-    try {
-        const response = await fetch("/api/getItems");
-        if (!response.ok) {
-            throw new Error(`Failed to fetch inventory: ${response.status}`);
-        }
-        const data = await response.json();
-        console.log("Fetched inventory items:", data);
-        return data || [];
-    } catch (error) {
-        console.error("Error fetching inventory:", error);
-        throw error; // Re-throw error to be handled by calling function
-    }
-};
+import { useInventoryStore } from '@/store';
 
 export default function InventoryPage() {
-    const [searchQuery, setSearchQuery] = useState('');
-    const [products, setProducts] = useState<Product[]>([]);
-    const [isLoading, setIsLoading] = useState(false);
-    
+    const { 
+        products, 
+        filteredProducts, 
+        isLoading, 
+        searchQuery, 
+        selectedCategory, 
+        sortBy, 
+        sortOrder, 
+        setSearchQuery, 
+        setSelectedCategory, 
+        setSortBy, 
+        setSortOrder, 
+        clearFilters,
+        updateVariant,
+        deleteVariant,
+        updateVariantStock,
+        refreshProducts
+    } = useInventoryStore();
+
     // Modal states
     const [editingVariant, setEditingVariant] = useState<ExtendedVariant | null>(null);
     const [viewingVariant, setViewingVariant] = useState<ExtendedVariant | null>(null);
@@ -81,20 +82,11 @@ export default function InventoryPage() {
     const confirmEdit = async () => {
         if (!editingVariant) return;
         
-        try {
-            const response = await fetch(`/api/variants/${editingVariant.id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(editForm)
-            });
-            
-            if (response.ok) {
-                await fetchInventoryItems();
-                setEditingVariant(null);
-                toast("Variant updated successfully");
-            }
-        } catch (error) {
-            console.error('Error updating variant:', error);
+        const success = await updateVariant(editingVariant.id, editForm);
+        if (success) {
+            setEditingVariant(null);
+            toast("Variant updated successfully");
+        } else {
             toast("Error updating variant");
         }
     };
@@ -102,18 +94,11 @@ export default function InventoryPage() {
     const confirmDelete = async () => {
         if (!deletingVariant) return;
         
-        try {
-            const response = await fetch(`/api/variants/${deletingVariant.id}`, {
-                method: 'DELETE'
-            });
-            
-            if (response.ok) {
-                await fetchInventoryItems();
-                setDeletingVariant(null);
-                toast("Variant deleted successfully");
-            }
-        } catch (error) {
-            console.error('Error deleting variant:', error);
+        const success = await deleteVariant(deletingVariant.id);
+        if (success) {
+            setDeletingVariant(null);
+            toast("Variant deleted successfully");
+        } else {
             toast("Error deleting variant");
         }
     };
@@ -128,45 +113,22 @@ export default function InventoryPage() {
             finalStock = Math.max(0, stockUpdateVariant.stock - stockUpdate.newStock);
         }
         
-        try {
-            const response = await fetch(`/api/variants/${stockUpdateVariant.id}/stock`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ stock: finalStock })
-            });
-            
-            if (response.ok) {
-                await fetchInventoryItems();
-                setStockUpdateVariant(null);
-                toast("Stock updated successfully");
-            }
-        } catch (error) {
-            console.error('Error updating stock:', error);
+        const success = await updateVariantStock(stockUpdateVariant.id, finalStock);
+        if (success) {
+            setStockUpdateVariant(null);
+            toast("Stock updated successfully");
+        } else {
             toast("Error updating stock");
         }
     };
 
     // Fetch inventory items on component mount
     useEffect(() => {
-        const getInventoryItems = async () => {
-            setIsLoading(true);
-            try {
-                const data = await fetchInventoryItems();
-                setProducts(data || []);
-            } catch (error) {
-                console.error("Error fetching inventory:", error);
-                toast.error("Failed to load inventory items");
-                setProducts([]); // Set empty array on error
-            } finally {
-                setIsLoading(false);
-            }
-        };
+        refreshProducts();
+    }, [refreshProducts]);
 
-        getInventoryItems();
-    }, []);
-
-    // Flatten products and variants for filtering and display
-    const allVariants = products?.flatMap(product => 
+    // Flatten filtered products and variants for display
+    const allVariants = filteredProducts?.flatMap(product => 
         product.variants?.map(variant => ({
             ...variant,
             productName: product.name,
@@ -177,15 +139,12 @@ export default function InventoryPage() {
         })) || []
     ) || [];
 
-    const filteredItems = allVariants.filter(item =>
-        item.productName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.size?.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-
     // Calculate statistics
     const totalProducts = products?.length || 0;
-    const lowStockItems = allVariants.filter(variant => (variant.stock || 0) < 10).length;
+    const allProductVariants = products?.flatMap(product => 
+        product.variants?.map(variant => ({ ...variant, HSN: product.HSN })) || []
+    ) || [];
+    const lowStockItems = allProductVariants.filter(variant => (variant.stock || 0) < 10).length;
 
     return (
         <>
@@ -201,7 +160,7 @@ export default function InventoryPage() {
                             <Package className="h-4 w-4 text-muted-foreground" />
                         </CardHeader>
                         <CardContent>
-                            <div className="text-2xl font-bold">{filteredItems.length}</div>
+                            <div className="text-2xl font-bold">{allVariants.length}</div>
                             <p className="text-xs text-muted-foreground">Items in inventory</p>
                         </CardContent>
                     </Card>
@@ -246,6 +205,43 @@ export default function InventoryPage() {
                                     className="pl-10"
                                 />
                             </div>
+                            <div className="flex gap-2">
+                                <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                                    <SelectTrigger className="w-48">
+                                        <SelectValue placeholder="Filter by category" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">All Categories</SelectItem>
+                                        <SelectItem value="1000">Textiles (1000+)</SelectItem>
+                                        <SelectItem value="2000">Food Products (2000+)</SelectItem>
+                                        <SelectItem value="3000">Electronics (3000+)</SelectItem>
+                                        <SelectItem value="4000">Machinery (4000+)</SelectItem>
+                                        <SelectItem value="5000">Chemicals (5000+)</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                <Select value={`${sortBy}-${sortOrder}`} onValueChange={(value) => {
+                                    const [field, order] = value.split('-') as ['name' | 'price' | 'stock', 'asc' | 'desc'];
+                                    setSortBy(field);
+                                    setSortOrder(order);
+                                }}>
+                                    <SelectTrigger className="w-40">
+                                        <SelectValue placeholder="Sort by" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="name-asc">Name A-Z</SelectItem>
+                                        <SelectItem value="name-desc">Name Z-A</SelectItem>
+                                        <SelectItem value="price-asc">Price Low-High</SelectItem>
+                                        <SelectItem value="price-desc">Price High-Low</SelectItem>
+                                        <SelectItem value="stock-asc">Stock Low-High</SelectItem>
+                                        <SelectItem value="stock-desc">Stock High-Low</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                {(searchQuery || selectedCategory !== 'all') && (
+                                    <Button variant="outline" onClick={clearFilters}>
+                                        Clear Filters
+                                    </Button>
+                                )}
+                            </div>
                             <Button className="flex items-center gap-2">
                                 <PlusCircle className="h-4 w-4" />
                                 Add Item
@@ -259,7 +255,7 @@ export default function InventoryPage() {
                     <CardHeader>
                         <CardTitle>Product Variants</CardTitle>
                         <CardDescription>
-                            {isLoading ? "Loading products..." : `${filteredItems.length} variants found`}
+                            {isLoading ? "Loading products..." : `${allVariants.length} variants found`}
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
@@ -270,7 +266,7 @@ export default function InventoryPage() {
                                 </div>
                                 <p className="text-muted-foreground">Loading products...</p>
                             </div>
-                        ) : filteredItems.length > 0 ? (
+                        ) : allVariants.length > 0 ? (
                             <div className="space-y-2">
                                 {/* Header Row */}
                                 <div className="grid grid-cols-12 gap-4 p-3 bg-muted/50 rounded-lg font-medium text-sm">
@@ -283,7 +279,7 @@ export default function InventoryPage() {
                                 </div>
                                 
                                 {/* Data Rows */}
-                                {filteredItems.map((variant) => (
+                                {allVariants.map((variant: ExtendedVariant) => (
                                     <div key={variant.id} className="grid grid-cols-12 gap-4 p-3 border rounded-lg hover:bg-muted/30 transition-colors items-center">
                                         <div className="col-span-4 sm:col-span-4 flex flex-col justify-center">
                                             <p className="font-medium text-sm">{variant.productName || 'Unknown Product'} {variant.name || 'Unknown Variant'}</p>

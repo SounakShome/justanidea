@@ -449,55 +449,120 @@ export default function AddOrder({ products }: AddOrderProps) {
                         </TabsContent>
 
                         <TabsContent value="summary" className="space-y-4">
-                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                                {/* Notes Section */}
-                                <Card>
-                                    <CardHeader>
-                                        <CardTitle>Notes</CardTitle>
-                                        <CardDescription>Add any special instructions</CardDescription>
-                                    </CardHeader>
-                                    <CardContent className="space-y-3">
-                                        <div>
-                                            <label className="block text-sm font-medium mb-1">Notes</label>
-                                            <textarea
-                                                className="w-full border rounded px-3 py-2 min-h-[80px] text-sm"
-                                                placeholder="Any special instructions or notes for this order..."
-                                                {...register("notes")}
-                                            />
-                                        </div>
-                                    </CardContent>
-                                </Card>
-
-                                {/* Order Summary */}
-                                <Card>
-                                    <CardHeader>
-                                        <CardTitle>Order Summary</CardTitle>
-                                        <CardDescription>Review your order totals</CardDescription>
-                                    </CardHeader>
-                                    <CardContent className="space-y-3">
-                                        <div className="space-y-2">
-                                            <div className="flex justify-between text-sm">
-                                                <span>Subtotal:</span>
-                                                <span>₹{calculateSubtotal().toFixed(2)}</span>
+                            <div className="space-y-4">
+                                {/* Customer Information Summary */}
+                                {selectedCustomer && (
+                                    <Card>
+                                        <CardHeader>
+                                            <CardTitle>Customer Details</CardTitle>
+                                            <CardDescription>Selected customer for this order</CardDescription>
+                                        </CardHeader>
+                                        <CardContent>
+                                            <div className="space-y-3">
+                                                <div>
+                                                    <p className="text-sm text-muted-foreground">Customer Name:</p>
+                                                    <p className="font-medium">{selectedCustomer.name}</p>
+                                                </div>
+                                                <div>
+                                                    <p className="text-sm text-muted-foreground">Address:</p>
+                                                    <p className="text-sm">{selectedCustomer.address || "N/A"}</p>
+                                                </div>
                                             </div>
-                                            
-                                            <Separator />
-                                            
-                                            <div className="flex justify-between font-bold text-base">
-                                                <span>Total Amount:</span>
-                                                <span>₹{calculateTotal().toFixed(2)}</span>
-                                            </div>
-                                        </div>
+                                        </CardContent>
+                                    </Card>
+                                )}
 
-                                        <Button 
-                                            type="submit" 
-                                            className="w-full h-11" 
-                                            disabled={!watchCustomerId || watchItems.length === 0}
-                                        >
-                                            Create Order
-                                        </Button>
-                                    </CardContent>
-                                </Card>
+                                {/* Order Items Summary */}
+                                {watchItems && watchItems.length > 0 && (
+                                    <Card>
+                                        <CardHeader>
+                                            <CardTitle>Order Items</CardTitle>
+                                            <CardDescription>{watchItems.length} item(s) in this order</CardDescription>
+                                        </CardHeader>
+                                        <CardContent>
+                                            <div className="space-y-3">
+                                                {watchItems.map((item, index) => {
+                                                    const product = products.find(p => 
+                                                        p.variants.some(v => v.id === item.id)
+                                                    );
+                                                    const variant = product?.variants.find(v => v.id === item.id);
+                                                    
+                                                    return product && variant ? (
+                                                        <div key={`${item.id}-${index}`} className="flex justify-between items-center p-3 border rounded-md">
+                                                            <div className="flex-1">
+                                                                <p className="font-medium text-sm">{product.name}</p>
+                                                                <p className="text-xs text-muted-foreground">
+                                                                    {variant.name} - {variant.size} × {item.quantity}
+                                                                </p>
+                                                                <p className="text-xs text-muted-foreground">
+                                                                    Rate: ₹{item.rate.toFixed(2)}
+                                                                </p>
+                                                            </div>
+                                                            <div className="text-right">
+                                                                <p className="font-medium">₹{item.total.toFixed(2)}</p>
+                                                            </div>
+                                                        </div>
+                                                    ) : null;
+                                                })}
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                )}
+
+                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                    {/* Notes Section */}
+                                    <Card>
+                                        <CardHeader>
+                                            <CardTitle>Notes</CardTitle>
+                                            <CardDescription>Add any special instructions</CardDescription>
+                                        </CardHeader>
+                                        <CardContent className="space-y-3">
+                                            <div>
+                                                <label className="block text-sm font-medium mb-1">Notes</label>
+                                                <textarea
+                                                    className="w-full border rounded px-3 py-2 min-h-[80px] text-sm"
+                                                    placeholder="Any special instructions or notes for this order..."
+                                                    {...register("notes")}
+                                                />
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+
+                                    {/* Order Total Summary */}
+                                    <Card>
+                                        <CardHeader>
+                                            <CardTitle>Order Total</CardTitle>
+                                            <CardDescription>Review your order totals</CardDescription>
+                                        </CardHeader>
+                                        <CardContent className="space-y-3">
+                                            <div className="space-y-2">
+                                                <div className="flex justify-between text-sm">
+                                                    <span>Items Count:</span>
+                                                    <span>{watchItems.length}</span>
+                                                </div>
+                                                <div className="flex justify-between text-sm">
+                                                    <span>Subtotal:</span>
+                                                    <span>₹{calculateSubtotal().toFixed(2)}</span>
+                                                </div>
+                                                
+                                                <Separator />
+                                                
+                                                <div className="flex justify-between font-bold text-base">
+                                                    <span>Total Amount:</span>
+                                                    <span>₹{calculateTotal().toFixed(2)}</span>
+                                                </div>
+                                            </div>
+
+                                            <Button 
+                                                type="submit" 
+                                                className="w-full h-11" 
+                                                disabled={!watchCustomerId || watchItems.length === 0}
+                                            >
+                                                Create Order
+                                            </Button>
+                                        </CardContent>
+                                    </Card>
+                                </div>
                             </div>
                         </TabsContent>
                     </Tabs>

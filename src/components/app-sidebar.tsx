@@ -16,6 +16,8 @@ import {
   IconBriefcase,
 } from "@tabler/icons-react"
 
+import { useCompanyStore } from "@/store";
+
 import { NavMain } from "@/components/nav-main"
 import { NavSecondary } from "@/components/nav-secondary"
 import { NavUser } from "@/components/nav-user"
@@ -97,10 +99,12 @@ interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
     email: string;
     image: string;
   },
-  companyName?: string;
 } 
 
-export function AppSidebar({ companyName, userData, ...props }: AppSidebarProps) {
+export function AppSidebar({ userData, ...props }: AppSidebarProps) {
+
+  const { company } = useCompanyStore();
+
   return (
     <Sidebar className="rounded-2xl" collapsible="offcanvas" {...props}>
       <SidebarHeader>
@@ -112,7 +116,7 @@ export function AppSidebar({ companyName, userData, ...props }: AppSidebarProps)
             >
               <a href="#">
                 <IconInnerShadowTop className="!size-5" />
-                <span className="text-base font-semibold">{companyName}</span>
+                <span className="text-base font-semibold">{company?.Name || `Company`}</span>
               </a>
             </SidebarMenuButton>
           </SidebarMenuItem>

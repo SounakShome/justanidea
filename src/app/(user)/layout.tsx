@@ -22,7 +22,7 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const session = await auth();
-
+  
   if (session?.user && (session.user as any).companyId == null) {
     redirect('/company');
   }
@@ -47,7 +47,7 @@ export default async function RootLayout({
     <AuthSyncProvider session={session}>
       <div className="w-full">
         <SidebarProvider className="flex flex-row">
-          <AppSidebar companyName={(session.user as any).company?.Name || "Company"} userData={userData} variant="inset" />
+          <AppSidebar userData={userData} variant="inset" />
           <div className="mt-2 flex flex-1 flex-col">
             <SidebarInset>
               <div className="pt-2 flex flex-1 flex-col">

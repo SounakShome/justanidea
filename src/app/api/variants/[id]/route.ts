@@ -8,3 +8,15 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 
   return Response.json(variants);
 }
+
+export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const data = await req.json();
+
+  const updatedVariant = await prisma.variants.update({
+    where: { id },
+    data,
+  });
+
+  return Response.json(updatedVariant);
+}

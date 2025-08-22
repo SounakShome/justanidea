@@ -11,31 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-
-interface Variant {
-    id: string;
-    name: string;
-    size: string;
-    price: number;
-    stock: number;
-    productId: string;
-}
-
-interface Product {
-    id: string;
-    name: string;
-    HSN: number;
-    createdAt: string;
-    updatedAt: string;
-    variants: Variant[];
-}
-
-interface ExtendedVariant extends Variant {
-    productName: string;
-    HSN: number;
-    createdAt: string;
-    updatedAt: string;
-}
+import { ExtendedVariant, Product } from "@/types/inventory";
 
 const fetchInventoryItems = async (): Promise<Product[]> => {
     try {

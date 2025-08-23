@@ -30,8 +30,8 @@ const Features = () => {
     },
     {
       icon: <Tag className="h-12 w-12 text-indigo-600" />,
-      title: 'Smart Barcode System',
-      description: 'Generate and scan barcodes for lightning-fast inventory checks, receiving, and order fulfillment.'
+      title: 'Smart Tagging System',
+      description: 'Organize products with smart tags and categories for lightning-fast inventory organization and search.'
     },
     {
       icon: <AlertCircle className="h-12 w-12 text-indigo-600" />,

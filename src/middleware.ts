@@ -20,17 +20,17 @@ export function middleware(request: NextRequest) {
         userAgent.includes('Mozilla') &&
         ((origin?.startsWith('http') || origin?.startsWith('https')) || referer?.startsWith('http') || referer?.startsWith('https'));
 
-    if (!isBrowser) {
-        return new NextResponse(
-            JSON.stringify({ error: 'Access denied. Use a browser.' }),
-            {
-                status: 403,
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-            }
-        );
-    }
+    // if (!isBrowser) {
+    //     return new NextResponse(
+    //         JSON.stringify({ error: 'Access denied. Use a browser.' }),
+    //         {
+    //             status: 403,
+    //             headers: {
+    //                 'Content-Type': 'application/json',
+    //             },
+    //         }
+    //     );
+    // }
 
     return NextResponse.next();
 }

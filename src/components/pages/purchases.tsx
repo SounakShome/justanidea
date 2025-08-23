@@ -1,822 +1,620 @@
 "use client";
 
-import React, { useState, useEffect, Suspense } from "react";
-import { useForm } from "react-hook-form";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { usePurchaseStore } from "@/store";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import DatePicker from "@/components/ui/datePicker";
-import { Package, Plus, Search, Trash2 } from "lucide-react";
 import { SiteHeader } from "../site-header";
-import Loading from "@/app/loading"
-import { PurchaseFormValues, Supplier, Variants } from "@/types/addPurchases";
-
-const getSuppliers = async (): Promise<Supplier[]> => {
-    // Simulate API delay
-    const res = await fetch("/api/getSuppliers");
-    if (!res.ok) {
-        throw new Error("Failed to fetch suppliers");
-    }
-    const data = await res.json();
-    console.log("Fetched suppliers:", data);
-    return data as Supplier[];
-};
-
-const getProducts = async (query: string = "", supplierId: string): Promise<Variants[]> => {
-    const response = await fetch(`/api/getItems/${supplierId}`);
-    if (!response.ok) {
-        throw new Error("Failed to fetch products");
-    }
-    const allProducts: Variants[] = await response.json();
-
-    if (!query) return allProducts;
-
-    const lowerCaseQuery = query.toLowerCase();
-    return allProducts.filter(product =>
-        product.name.toLowerCase().includes(lowerCaseQuery) ||
-        product.size.toLowerCase().includes(lowerCaseQuery) ||
-        product.product.name.toLowerCase().includes(lowerCaseQuery)
-    );
-};
-
-
-const savePurchase = async (data: PurchaseFormValues): Promise<{ success: boolean; id: string }> => {
-    // Simulate API delay
-    await fetch("/api/purchase", {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-        },
-        body: JSON.stringify(data),
-    });
-
-    // Simulate successful response
-    return {
-        success: true,
-        id: "PO-" + Math.floor(10000 + Math.random() * 90000)
-    };
-};
-
-// Form field component
-const FormField = ({
-    label,
-    error,
-    children
-}: {
-    label: string;
-    error?: string;
-    children: React.ReactNode;
-}) => (
-    <div className="mb-3">
-        <label className="block text-sm font-medium mb-1">{label}</label>
-        {children}
-        {error && <span className="text-red-500 text-xs">{error}</span>}
-    </div>
-);
-
-export default function PurchaseEntryForm() {
-    // State
-    const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-    const [products, setProducts] = useState<Variants[]>([]);
-    const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
-    const [purchaseDate, setPurchaseDate] = useState<Date>(new Date());
-    const [productSearchQuery, setProductSearchQuery] = useState("");
-    const [isLoadingSuppliers, setIsLoadingSuppliers] = useState(false);
-    const [isLoadingProducts, setIsLoadingProducts] = useState(false);
-    const [isSaving, setIsSaving] = useState(false);
-    const [activeTab, setActiveTab] = useState("products");
-
-    // Form
-    const { register, handleSubmit, setValue, getValues, watch, formState: { errors }, reset } = useForm<PurchaseFormValues>({
-        defaultValues: {
-            invoiceNo: "",
-            purchaseDate: purchaseDate,
-            supplierId: "",
-            items: [],
-            subTotal: 0,
-            discount: 0,
-            taxableAmount: 0,
-            tax: "igst",
-            igst: 0,
-            cgst: 0,
-            sgst: 0,
-            totalAmount: 0,
-            notes: ""
-        }
-    });
-
-    const watchItems = watch("items", []);
-    const watchSupplierId = watch("supplierId");
-    const watchTax = watch("tax");
-    const watchIGST = watch("igst");
-    const watchCGST = watch("cgst");
-    const watchSGST = watch("sgst");
-    const watchDiscount = watch("discount");
-
-    // Load suppliers on component mount
-    useEffect(() => {
-        const loadSuppliers = async () => {
-            setIsLoadingSuppliers(true);
-            try {
-                const data = await getSuppliers();
-                setSuppliers(data);
-            } catch (error) {
-                console.error("Error loading suppliers:", error);
-                toast("Error", {
-                    description: "Failed to load suppliers"
-                });
-            } finally {
-                setIsLoadingSuppliers(false);
-            }
-        };
-
-        loadSuppliers();
-    }, []);
-
-    // Search products when query changes
-    useEffect(() => {
-        if (watchSupplierId) {
-            const searchProductsDebounced = setTimeout(async () => {
-                setIsLoadingProducts(true);
-                try {
-                    const data = await getProducts(productSearchQuery, watchSupplierId);
-                    setProducts(data);
-                } catch (error) {
-                    console.error("Error searching products:", error);
-                    toast("Error", {
-                        description: "Failed to search products"
-                    });
-                } finally {
-                    setIsLoadingProducts(false);
-                }
-            }, 300);
-
-            return () => clearTimeout(searchProductsDebounced);
-        } else {
-            // Clear products when no supplier is selected
-            setProducts([]);
-            return () => { }; // Empty cleanup function
-        }
-    }, [productSearchQuery, watchSupplierId]);
-
-    // Update selected supplier when supplier ID changes
-    useEffect(() => {
-        if (watchSupplierId) {
-            const supplier = suppliers.find(s => s.id === watchSupplierId);
-            setSelectedSupplier(supplier || null);
-        } else {
-            setSelectedSupplier(null);
-        }
-    }, [watchSupplierId, suppliers]);
-
-    // Helper functions
-    const addProductToItems = (product: Variants) => {
-        const currentItems = getValues("items") || [];
-        const existingItem = currentItems.find(item => item.id === product.id);
-
-        if (existingItem) {
-            // Update quantity if already in cart
-            const updatedItems = currentItems.map(item =>
-                item.id === product.id
-                    ? {
-                        ...item,
-                        quantity: item.quantity + 1,
-                        total: (item.quantity + 1) * item.price * (1 - item.discount / 100)
-                    }
-                    : item
-            );
-            setValue("items", updatedItems);
-        } else {
-            // Add new item
-            setValue("items", [
-                ...currentItems,
-                {
-                    id: product.id,
-                    quantity: 1,
-                    price: product.price,
-                    discount: 0,
-                    total: product.price
-                }
-            ]);
-        }
-    };
-
-    const updateItemQuantity = (productId: string, quantity: number) => {
-        const currentItems = getValues("items");
-        const updatedItems = currentItems.map(item =>
-            item.id === productId
-                ? {
-                    ...item,
-                    quantity,
-                    total: quantity * item.price * (1 - item.discount / 100)
-                }
-                : item
-        );
-        setValue("items", updatedItems);
-    };
-
-    const updateItemDiscount = (productId: string, discount: number) => {
-        const currentItems = getValues("items");
-        const updatedItems = currentItems.map(item =>
-            item.id === productId
-                ? {
-                    ...item,
-                    discount,
-                    total: item.quantity * item.price * (1 - (discount || 0) / 100)
-                }
-                : item
-        );
-        setValue("items", updatedItems);
-    };
-
-    const removeItem = (productId: string) => {
-        const currentItems = getValues("items");
-        setValue("items", currentItems.filter(item => item.id !== productId));
-    };
-
-    // Calculate subtotal, tax, and total
-    const calculateSubtotal = () => {
-        if (!watchItems?.length) return 0;
-
-        const subTotal = watchItems.reduce((total, item) => total + item.total, 0);
-        setValue("subTotal", subTotal);
-
-        return subTotal;
-    };
-
-    const calculateTaxableAmount = () => {
-        const subtotal = calculateSubtotal();
-        const taxAmt = subtotal - watchDiscount;
-        setValue("taxableAmount", taxAmt);
-        return taxAmt;
-    };
-
-    const calculateTaxAmount = () => {
-
-        if (watchTax === "igst") {
-            return calculateTaxableAmount() * ((watchIGST || 0) / 100);
-        } else{
-            return calculateTaxableAmount() * (watchCGST || 0 / 100) + calculateTaxableAmount() * (watchSGST || 0 / 100);
-        }
-    };
-
-    const calculateRoundingOff = () => {
-        const total = calculateTaxableAmount() + calculateTaxAmount();
-        return (Math.ceil(total) - total);
-    };
-
-    const calculateTotal = () => {
-        const total = Math.ceil(calculateTaxableAmount() + calculateTaxAmount());
-        setValue("totalAmount", total);
-        return total;
-    };
-
-    // Form submission
-    const onSubmit = async (data: PurchaseFormValues) => {
-        if (!data.items.length) {
-            toast("No items added", {
-                description: "Please add at least one item to the purchase order"
-            });
-            return;
-        }
-
-        setIsSaving(true);
-        try {
-            const result = await savePurchase(data);
-
-            if (result.success) {
-                toast("Purchase order created", {
-                    description: `Purchase order ${result.id} has been created`,
-                });
-                reset();
-                setPurchaseDate(new Date());
-                setProductSearchQuery("");
-            }
-        } catch (error) {
-            console.error("Error saving purchase:", error);
-            toast("Error", {
-                description: "Failed to save purchase order"
-            });
-        } finally {
-            setIsSaving(false);
-        }
-    };
-
-    return (
-        <Suspense fallback={<Loading />}>
-            <div className="container mx-auto p-6 py-2">
-                <SiteHeader name="Purchase Order" />
-
-                <form className="mt-6" onSubmit={handleSubmit(onSubmit)}>
-                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                        {/* --- FIRST ROW --- */}
-
-                        {/* Purchase Info - 8 columns */}
-                        <Card className="lg:col-span-12">
-                            <CardHeader className="pb-3">
-                                <CardTitle>Purchase Information</CardTitle>
-                                <CardDescription>Basic details for this purchase order</CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div className="space-y-4">
-                                        <FormField label="Supplier" error={errors.supplierId?.message}>
-                                            <Select
-                                                onValueChange={(value) => setValue("supplierId", value)}
-                                                disabled={isLoadingSuppliers}
-                                            >
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder="Select supplier" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {suppliers.map(supplier => (
-                                                        <SelectItem key={supplier.id} value={supplier.id}>
-                                                            {`${supplier.name} (${supplier.division})`}
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                        </FormField>
-
-                                        <FormField label="Invoice Number" error={errors.invoiceNo?.message}>
-                                            <Input
-                                                placeholder="PO-12345"
-                                                {...register("invoiceNo", { required: "Reference number is required" })}
-                                            />
-                                        </FormField>
-                                    </div>
-
-                                    <div className="space-y-4">
-                                        <DatePicker
-                                            setPurchase={setPurchaseDate}
-                                        />
-                                    </div>
-                                </div>
-                            </CardContent>
-                        </Card>
-
-                        {/* Supplier Info Card - 8 columns */}
-                        <Card className="lg:col-span-8">
-                            <CardHeader className="pb-2">
-                                <div className="flex items-center justify-between">
-                                    <CardTitle className="text-lg">Supplier Details</CardTitle>
-                                    {selectedSupplier && (
-                                        <Badge variant="outline" className="hidden sm:inline-flex">
-                                            {selectedSupplier.Supp_State}
-                                        </Badge>
-                                    )}
-                                </div>
-                            </CardHeader>
-                            <CardContent>
-                                {selectedSupplier ? (
-                                    <div>
-                                        {/* Mobile layout - stacked */}
-                                        <div className="space-y-3 sm:hidden">
-                                            <div className="flex justify-between items-start pb-2 border-b">
-                                                <div>
-                                                    <p className="text-sm text-muted-foreground">Company</p>
-                                                    <p className="font-medium text-base">{selectedSupplier.name}</p>
-                                                </div>
-                                                <Badge>{selectedSupplier.Supp_State}</Badge>
-                                            </div>
-
-                                            <div className="pb-2 border-b">
-                                                <p className="text-sm text-muted-foreground">Division</p>
-                                                <p>{selectedSupplier.division}</p>
-                                            </div>
-
-                                            <div className="grid grid-cols-1 gap-3 pb-2 border-b">
-                                                <div>
-                                                    <p className="text-sm text-muted-foreground">CIN</p>
-                                                    <p className="overflow-x-auto whitespace-nowrap text-sm">{selectedSupplier.CIN}</p>
-                                                </div>
-                                                <div>
-                                                    <p className="text-sm text-muted-foreground">GSTIN</p>
-                                                    <p className="overflow-x-auto whitespace-nowrap text-sm">{selectedSupplier.GSTIN}</p>
-                                                </div>
-                                            </div>
-
-                                            <div className="grid grid-cols-2 gap-3 pb-2 border-b">
-                                                <div>
-                                                    <p className="text-sm text-muted-foreground">Code</p>
-                                                    <p>{selectedSupplier.Code}</p>
-                                                </div>
-                                                <div>
-                                                    <p className="text-sm text-muted-foreground">PAN</p>
-                                                    <p>{selectedSupplier.PAN}</p>
-                                                </div>
-                                            </div>
-
-                                            <div className="pb-2 border-b">
-                                                <p className="text-sm text-muted-foreground">Phone</p>
-                                                <p className="text-sm">{selectedSupplier.phone}</p>
-                                            </div>
-
-                                            <div>
-                                                <p className="text-sm text-muted-foreground">Address</p>
-                                                <p className="text-sm">{selectedSupplier.address}</p>
-                                            </div>
-                                        </div>
-
-                                        {/* Desktop layout - using grid */}
-                                        <div className="hidden sm:grid sm:grid-cols-2 sm:gap-4">
-                                            <div className="space-y-2 col-span-2">
-                                                <p className="text-sm text-muted-foreground">Company</p>
-                                                <p className="font-medium">{selectedSupplier.name}</p>
-                                            </div>
-
-                                            <div>
-                                                <p className="text-sm text-muted-foreground">Division</p>
-                                                <p>{selectedSupplier.division}</p>
-                                            </div>
-
-                                            <div>
-                                                <p className="text-sm text-muted-foreground">Code</p>
-                                                <p>{selectedSupplier.Code}</p>
-                                            </div>
-
-                                            <div>
-                                                <p className="text-sm text-muted-foreground">CIN</p>
-                                                <p>{selectedSupplier.CIN}</p>
-                                            </div>
-
-                                            <div>
-                                                <p className="text-sm text-muted-foreground">GSTIN</p>
-                                                <p>{selectedSupplier.GSTIN}</p>
-                                            </div>
-
-                                            <div>
-                                                <p className="text-sm text-muted-foreground">Phone</p>
-                                                <p>{selectedSupplier.phone}</p>
-                                            </div>
-
-                                            <div>
-                                                <p className="text-sm text-muted-foreground">PAN</p>
-                                                <p>{selectedSupplier.PAN}</p>
-                                            </div>
-
-                                            <div className="col-span-2">
-                                                <p className="text-sm text-muted-foreground">Address</p>
-                                                <p className="text-sm">{selectedSupplier.address}</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <div className="flex flex-col items-center justify-center h-[120px] text-center p-4">
-                                        <Package className="h-10 w-10 text-muted-foreground mb-3" />
-                                        <p className="text-muted-foreground text-sm">Select a supplier to see details</p>
-                                        <p className="text-xs text-muted-foreground mt-1">All supplier information will appear here</p>
-                                    </div>
-                                )}
-                            </CardContent>
-                        </Card>
-
-                        {/* Order Summary Card - 4 columns */}
-                        <div className="lg:col-span-4 lg:sticky lg:top-6 space-y-6">
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle>Order Summary</CardTitle>
-                                </CardHeader>
-                                <CardContent className="space-y-4">
-                                    <div className="flex justify-between">
-                                        <span className="text-muted-foreground">Subtotal:</span>
-                                        <span>₹{calculateSubtotal().toFixed(2) || 0}</span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <span className="text-muted-foreground">Discount:</span>
-                                        <span>-₹{watchDiscount.toFixed(2) || 0}</span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <span className="text-muted-foreground">Taxable Amount:</span>
-                                        <span>₹{calculateTaxableAmount().toFixed(2) || 0}</span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        {watchTax == "igst" ? <span className="text-muted-foreground">IGST ({watchIGST}%):</span> : <span className="text-muted-foreground">CGST ({watchCGST}%) + SGST ({watchSGST}%):</span>}
-                                        <span>₹{calculateTaxAmount().toFixed(2) || 0}</span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <span className="text-muted-foreground">Rounding off:</span>
-                                        <span>₹{calculateRoundingOff().toFixed(2)}</span>
-                                    </div>
-                                    <Separator />
-                                    <div className="flex justify-between font-medium text-lg">
-                                        <span>Total:</span>
-                                        <span>₹{calculateTotal().toFixed(2)}</span>
-                                    </div>
-                                </CardContent>
-                                <CardFooter>
-                                    <Button
-                                        className="w-full"
-                                        size="lg"
-                                        disabled={isSaving}
-                                        type="submit"
-                                    >
-                                        {isSaving ? "Processing..." : "Create Purchase Order"}
-                                    </Button>
-                                </CardFooter>
-                            </Card>
-                        </div>
-
-
-
-                        {/* --- SECOND ROW --- */}
-
-                        {/* Main Content Area with Tabs - 8 columns */}
-                        <Card className="lg:col-span-8">
-                            <Tabs value={activeTab} onValueChange={setActiveTab}>
-                                <CardHeader className="pb-3">
-                                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                                        <CardTitle>Order Details</CardTitle>
-                                        <TabsList className="w-full sm:w-auto">
-                                            <TabsTrigger value="products">Products</TabsTrigger>
-                                            <TabsTrigger value="payment">Payment</TabsTrigger>
-                                            <TabsTrigger value="notes">Notes</TabsTrigger>
-                                        </TabsList>
-                                    </div>
-                                </CardHeader>
-                                <CardContent>
-                                    <TabsContent value="products" className="space-y-4">
-                                        {/* Product Search */}
-                                        <div className="flex items-center space-x-2">
-                                            <div className="relative flex-grow">
-                                                <Search className="absolute left-2.5 top-3 h-4 w-4 text-muted-foreground" />
-                                                <Input
-                                                    placeholder="Search products..."
-                                                    value={productSearchQuery}
-                                                    onChange={(e) => setProductSearchQuery(e.target.value)}
-                                                    className="pl-8 h-10"
-                                                />
-                                            </div>
-                                        </div>
-
-                                        {/* Product List */}
-                                        <ScrollArea className="h-[250px] sm:h-[250px] border rounded-md p-2 sm:p-4">
-                                            {isLoadingProducts ? (
-                                                <div className="flex justify-center items-center h-full">
-                                                    <p>Loading products...</p>
-                                                </div>
-                                            ) : products.length > 0 ? (
-                                                <div className="grid grid-cols-1 gap-3">
-                                                    {products.map(product => (
-                                                        <div
-                                                            key={product.id}
-                                                            className="border rounded-md p-3 flex justify-between items-center hover:bg-muted/50 transition-colors"
-                                                        >
-                                                            <div>
-                                                                <p className="font-medium">{`${product.product?.name} `}{product.name}</p>
-                                                                <p className="text-sm text-muted-foreground">Size: {product.size}</p>
-                                                                <p className="text-sm text-muted-foreground">Price: ₹{product.price}</p>
-                                                            </div>
-                                                            <Button
-                                                                type="button"
-                                                                variant="secondary"
-                                                                size="sm"
-                                                                className="h-9 px-3 cursor-pointer"
-                                                                onClick={() => {addProductToItems(product); setProductSearchQuery("")}}
-                                                            >
-                                                                <Plus className="h-4 w-4 mr-1" /> Add
-                                                            </Button>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            ) : (
-                                                <div className="flex justify-center items-center h-full">
-                                                    <p className="text-muted-foreground">{productSearchQuery ? "No products match your search" : "No products available"}</p>
-                                                </div>
-                                            )}
-                                        </ScrollArea>
-
-                                        {/* Selected Items List */}
-                                        <ScrollArea className="border rounded-md">
-                                            <div className="bg-muted px-3 py-2 rounded-t-md flex items-center">
-                                                <h3 className="font-medium">Selected Items</h3>
-                                            </div>
-                                            <div>
-                                                {watchItems && watchItems.length > 0 ? (
-                                                    <div>
-                                                        <div className="hidden sticky top-0 bg-white z-50 sm:grid grid-cols-12 text-sm font-medium border-b p-3">
-                                                            <div className="col-span-4">Product</div>
-                                                            <div className="col-span-2">Unit Price {"(₹)"}</div>
-                                                            <div className="col-span-2">Quantity</div>
-                                                            <div className="col-span-2">Discount %</div>
-                                                            <div className="col-span-2 text-right mr-6">Total {`(₹)`}</div>
-                                                        </div>
-
-                                                        <ScrollArea className="max-h-[200px]">
-                                                            {watchItems.map((item) => {
-                                                                const product = products.find(p => p.id === item.id);
-                                                                return product ? (
-                                                                    <div key={item.id} className="p-3 border-b last:border-0">
-                                                                        {/* Mobile view (stacked) */}
-                                                                        <div className="md:hidden">
-                                                                            <div className="flex justify-between mb-2">
-                                                                                <div>
-                                                                                    <p className="font-medium">{`${product.product.name}`}{product.name}</p>
-                                                                                    <p className="text-xs text-muted-foreground">Size: {product.size}</p>
-                                                                                </div>
-                                                                                <Button
-                                                                                    type="button"
-                                                                                    variant="ghost"
-                                                                                    size="sm"
-                                                                                    className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
-                                                                                    onClick={() => removeItem(item.id)}
-                                                                                >
-                                                                                    <Trash2 className="h-4 w-4" />
-                                                                                </Button>
-                                                                            </div>
-                                                                            <div className="grid grid-cols-3 gap-2 mb-2">
-                                                                                <div>
-                                                                                    <p className="text-xs text-muted-foreground">Price</p>
-                                                                                    <p>₹{item.price}</p>
-                                                                                </div>
-                                                                                <div>
-                                                                                    <p className="text-xs text-muted-foreground">Quantity</p>
-                                                                                    <Input
-                                                                                        type="number"
-                                                                                        value={item.quantity}
-                                                                                        onChange={(e) => updateItemQuantity(item.id, parseInt(e.target.value) || 1)}
-                                                                                        className="h-8 w-full"
-                                                                                    />
-                                                                                </div>
-                                                                                <div>
-                                                                                    <p className="text-xs text-muted-foreground">Discount</p>
-                                                                                    <Input
-                                                                                        type="number"
-                                                                                        step={0.01}
-                                                                                        max="100"
-                                                                                        value={item.discount}
-                                                                                        onChange={(e) => updateItemDiscount(item.id, parseFloat(e.target.value))}
-                                                                                        className="h-8 w-full"
-                                                                                    />
-                                                                                </div>
-                                                                            </div>
-                                                                            <div className="flex justify-end">
-                                                                                <span className="font-medium">Total: {item.total}</span>
-                                                                            </div>
-                                                                        </div>
-
-                                                                        {/* Desktop view (grid) */}
-                                                                        <div className="hidden md:grid md:grid-cols-12 md:items-center">
-                                                                            <div className="col-span-4">
-                                                                                <p className="font-medium">{`${product.product.name} `}{product.name}</p>
-                                                                                <p className="text-xs text-muted-foreground">Size: {product.size}</p>
-                                                                            </div>
-                                                                            <div className="col-span-2">
-                                                                                {item.price}
-                                                                            </div>
-                                                                            <div className="col-span-2">
-                                                                                <Input
-                                                                                    type="number"
-                                                                                    value={item.quantity}
-                                                                                    onChange={(e) => updateItemQuantity(item.id, parseInt(e.target.value) || 1)}
-                                                                                    className="w-20 h-8"
-                                                                                />
-                                                                            </div>
-                                                                            <div className="col-span-2">
-                                                                                <Input
-                                                                                    type="number"
-                                                                                    step={0.01}
-                                                                                    max="100"
-                                                                                    value={item.discount}
-                                                                                    onChange={(e) => updateItemDiscount(item.id, parseFloat(e.target.value))}
-                                                                                    className="w-20 h-8"
-                                                                                />
-                                                                            </div>
-                                                                            <div className="col-span-2 flex items-center justify-end space-x-2">
-                                                                                <span className="font-medium">{item.total.toFixed(2) || 0}</span>
-                                                                                <Button
-                                                                                    type="button"
-                                                                                    variant="ghost"
-                                                                                    size="sm"
-                                                                                    className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
-                                                                                    onClick={() => removeItem(item.id)}
-                                                                                >
-                                                                                    <Trash2 className="h-4 w-4" />
-                                                                                </Button>
-                                                                            </div>
-                                                                        </div>
-                                                                    </div>
-                                                                ) : null;
-                                                            })}
-                                                        </ScrollArea>
-                                                    </div>
-                                                ) : (
-                                                    <div className="py-8 text-center">
-                                                        <p className="text-muted-foreground">No items added yet</p>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </ScrollArea>
-                                    </TabsContent>
-
-                                    <TabsContent value="payment" className="space-y-4">
-                                        <div className="grid grid-cols-1 gap-4">
-                                            <FormField label="Discount" error={errors.discount?.message}>
-                                                <div className="flex items-center space-x-2">
-                                                    <Input
-                                                        type="number"
-                                                        step="0.01"
-                                                        placeholder="0.00"
-                                                        className="max-w-[150px]"
-                                                        {...register("discount", {
-                                                            valueAsNumber: true,
-                                                            setValueAs: v => parseFloat(v) || 0
-                                                        })}
-                                                    />
-                                                </div>
-                                            </FormField>
-
-                                            <div className="border rounded-md p-4 space-y-4">
-                                                <h3 className="font-medium mb-2">Tax Settings</h3>
-
-                                                <div className="space-y-3">
-                                                    <Select
-                                                        onValueChange={(value) => setValue("tax", value)}
-                                                        defaultValue="igst"
-                                                    >
-                                                        <SelectTrigger>
-                                                            <SelectValue placeholder="Select tax type" />
-                                                        </SelectTrigger>
-                                                        <SelectContent>
-                                                            <SelectItem value="igst">IGST</SelectItem>
-                                                            <SelectItem value="sgst_cgst">SGST + CGST</SelectItem>
-                                                        </SelectContent>
-                                                    </Select>
-
-                                                    {watch("tax") === "igst" ? (
-                                                        <FormField label="IGST %" error={errors.igst?.message}>
-                                                            <Input
-                                                                type="number"
-                                                                step="0.01"
-                                                                placeholder="18"
-                                                                className="max-w-[150px]"
-                                                                {...register("igst", {
-                                                                    valueAsNumber: true,
-                                                                    setValueAs: v => parseFloat(v) || 0
-                                                                })}
-                                                                onChange={(e) => setValue("igst", parseFloat(e.target.value))}
-                                                            />
-                                                        </FormField>
-                                                    ) : (
-                                                        <div className="grid grid-cols-2 gap-3">
-                                                            <FormField label="SGST %" error={errors.sgst?.message}>
-                                                                <Input
-                                                                    type="number"
-                                                                    step="0.01"
-                                                                    placeholder="9"
-                                                                    className="max-w-full"
-                                                                    {...register("sgst", {
-                                                                        valueAsNumber: true,
-                                                                        setValueAs: v => parseFloat(v) || 0
-                                                                    })}
-                                                                    onChange={(e) => {
-                                                                        setValue("sgst", parseFloat(e.target.value));
-                                                                    }}
-                                                                />
-                                                            </FormField>
-                                                            <FormField label="CGST %" error={errors.cgst?.message}>
-                                                                <Input
-                                                                    type="number"
-                                                                    step="0.01"
-                                                                    placeholder="9"
-                                                                    className="max-w-full"
-                                                                    {...register("cgst", {
-                                                                        valueAsNumber: true,
-                                                                        setValueAs: v => parseFloat(v) || 0
-                                                                    })}
-                                                                    onChange={(e) => {
-                                                                        setValue("cgst", parseFloat(e.target.value));
-                                                                    }}
-                                                                />
-                                                            </FormField>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </TabsContent>
-
-                                    <TabsContent value="notes">
-                                        <FormField label="Notes & Additional Information" error={errors.notes?.message}>
-                                            <textarea
-                                                className="w-full min-h-[150px] sm:min-h-[200px] p-3 border rounded-md"
-                                                placeholder="Enter any notes or special instructions..."
-                                                {...register("notes")}
-                                            ></textarea>
-                                        </FormField>
-                                    </TabsContent>
-                                </CardContent>
-                            </Tabs>
-                        </Card>
-                    </div>
-                </form>
-            </div>
-        </Suspense>
-    );
+import { Search, Plus, RefreshCw, Hash, Calendar, Package, X, Download, Building2 } from "lucide-react";
+import Link from "next/link";
+import { toast } from "sonner";
+import DatePicker from "@/components/ui/datePicker";
+
+export default function PurchasesPage() {
+	const {
+		filteredPurchases,
+		purchaseSearchQuery,
+		isLoadingPurchases,
+		setPurchaseSearchQuery,
+		fetchPurchases,
+		updatePurchaseStatus,
+		deletePurchase,
+	} = usePurchaseStore();
+
+	const [selectedPurchase, setSelectedPurchase] = useState<any>(null);
+	const [error, setError] = useState<string | null>(null);
+	const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({
+		from: undefined,
+		to: undefined,
+	});
+	const [fromDate, setFromDate] = useState<string>('');
+	const [toDate, setToDate] = useState<string>('');
+	const [datePickerKey, setDatePickerKey] = useState<number>(0);
+
+	useEffect(() => {
+		fetchPurchases();
+	}, [fetchPurchases]);
+
+	// Filter purchases by status
+	const pendingPurchases = filteredPurchases.filter(purchase => 
+		purchase.status.toLowerCase() === 'pending'
+	);
+	const receivedPurchases = filteredPurchases.filter(purchase => 
+		purchase.status.toLowerCase() === 'received'
+	);
+	const cancelledPurchases = filteredPurchases.filter(purchase => 
+		purchase.status.toLowerCase() === 'cancelled'
+	);
+
+	const clearDateFilter = () => {
+		setDateRange({ from: undefined, to: undefined });
+		setFromDate('');
+		setToDate('');
+		setDatePickerKey(prev => prev + 1); // Force re-render of DatePicker components
+	};
+
+	const handleFromDateChange = (date: Date) => {
+		if (date) {
+			const dateString = date.toISOString().split('T')[0];
+			setFromDate(dateString);
+			setDateRange(prev => ({ ...prev, from: date }));
+		}
+	};
+
+	const handleToDateChange = (date: Date) => {
+		if (date) {
+			const dateString = date.toISOString().split('T')[0];
+			setToDate(dateString);
+			setDateRange(prev => ({ ...prev, to: date }));
+		}
+	};
+
+	// Filter by search query
+	const filterBySearch = (purchases: any[]) => {
+		if (!purchaseSearchQuery) return purchases;
+		return purchases.filter(purchase =>
+			purchase.supplier.name.toLowerCase().includes(purchaseSearchQuery.toLowerCase()) ||
+			purchase.invoiceNo.includes(purchaseSearchQuery)
+		);
+	};
+
+	// Filter by date range
+	const filterByDateRange = (purchases: any[]) => {
+		if (!dateRange.from && !dateRange.to) return purchases;
+		
+		return purchases.filter(purchase => {
+			const purchaseDate = new Date(purchase.purchaseDate);
+			
+			if (dateRange.from && dateRange.to) {
+				return purchaseDate >= dateRange.from && purchaseDate <= dateRange.to;
+			} else if (dateRange.from) {
+				return purchaseDate >= dateRange.from;
+			} else if (dateRange.to) {
+				return purchaseDate <= dateRange.to;
+			}
+			
+			return true;
+		});
+	};
+
+	// Combined filter function
+	const applyAllFilters = (purchases: any[]) => {
+		return filterByDateRange(filterBySearch(purchases));
+	};
+
+	const openPurchaseDetails = (purchase: any) => {
+		setSelectedPurchase(purchase);
+	};
+
+	const closePurchaseDetails = () => {
+		setSelectedPurchase(null);
+	};
+
+	const handleStatusUpdate = async (purchase: any, newStatus: "PENDING" | "RECEIVED" | "CANCELLED" | "pending" | "received" | "cancelled") => {
+		try {
+			await updatePurchaseStatus(purchase.id, newStatus);
+			toast.success(`Purchase status updated to ${newStatus}`);
+			setSelectedPurchase({ ...purchase, status: newStatus });
+		} catch (error) {
+			console.error('Error updating status:', error);
+			toast.error('Failed to update purchase status');
+		}
+	};
+
+	const handleApprovePurchase = async (purchase: any) => {
+		try {
+			toast.loading(`Approving Purchase #${purchase.invoiceNo}...`);
+			
+			const response = await fetch(`/api/purchases/${purchase.id}/approve`, {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+				},
+			});
+			
+			if (response.ok) {
+				const updatedPurchase = await response.json();
+				await fetchPurchases(); // Refresh the list
+				setSelectedPurchase({ ...purchase, status: 'received' });
+				
+				toast.dismiss();
+				toast.success(`Purchase #${purchase.invoiceNo} has been approved`);
+			} else {
+				const errorData = await response.json();
+				toast.dismiss();
+				toast.error(errorData.message || 'Failed to approve purchase');
+			}
+		} catch (error) {
+			console.error('Error approving purchase:', error);
+			toast.dismiss();
+			toast.error('Failed to approve purchase');
+		}
+	};
+
+	const handleDeletePurchase = async (purchaseId: string) => {
+		if (confirm("Are you sure you want to delete this purchase?")) {
+			try {
+				await deletePurchase(purchaseId);
+				toast.success("Purchase deleted successfully");
+				closePurchaseDetails();
+			} catch (error) {
+				console.error('Error deleting purchase:', error);
+				toast.error("Failed to delete purchase");
+			}
+		}
+	};
+
+	const handleDownloadPDF = async (purchase: any) => {
+		try {
+			toast.loading(`Generating PDF for Purchase #${purchase.invoiceNo}...`);
+			
+			const response = await fetch(`/api/purchases/${purchase.id}/pdf`, {
+				method: 'GET',
+			});
+			
+			if (response.ok) {
+				const blob = await response.blob();
+				const url = window.URL.createObjectURL(blob);
+				const a = document.createElement('a');
+				a.href = url;
+				a.download = `purchase_${purchase.invoiceNo}.pdf`;
+				document.body.appendChild(a);
+				a.click();
+				document.body.removeChild(a);
+				window.URL.revokeObjectURL(url);
+				
+				toast.dismiss();
+				toast.success(`PDF downloaded successfully`);
+			} else {
+				toast.dismiss();
+				toast.error('Failed to generate PDF');
+			}
+		} catch (error) {
+			console.error('Error downloading PDF:', error);
+			toast.dismiss();
+			toast.error('Failed to download PDF');
+		}
+	};
+
+	const renderPurchaseCard = (purchase: any) => {
+		return (
+			<Card key={purchase.id} className="hover:shadow-md transition-shadow cursor-pointer">
+				<CardHeader
+					className="px-4 sm:px-6"
+					onClick={() => openPurchaseDetails(purchase)}
+				>
+					{/* Mobile Layout */}
+					<div className="block sm:hidden">
+						<div className="flex justify-between items-start mb-2">
+							<CardTitle className="text-base truncate flex-1 mr-2">{purchase.supplier.name}</CardTitle>
+							<Badge variant="secondary" className="text-xs">
+								{purchase.status.charAt(0).toUpperCase() + purchase.status.slice(1)}
+							</Badge>
+						</div>
+						<div className="text-xs space-y-1 mb-3 text-muted-foreground">
+							<div className="flex items-center gap-1">
+								<span>#{purchase.invoiceNo}</span>
+							</div>
+							<div className="flex items-center gap-1">
+								<Calendar className="h-3 w-3 flex-shrink-0" />
+								<span>{new Date(purchase.purchaseDate).toLocaleDateString()}</span>
+							</div>
+							<div className="font-medium text-foreground">
+								₹{purchase.totalAmount.toFixed(2)}
+							</div>
+						</div>
+					</div>
+
+					{/* Desktop Layout */}
+					<div className="hidden sm:flex items-start justify-between gap-3">
+						<div className="flex-1 min-w-0">
+							<CardTitle className="text-lg truncate">{purchase.supplier.name}</CardTitle>
+							<div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground">
+								<span className="flex items-center gap-1">
+									<span>#{purchase.invoiceNo}</span>
+								</span>
+								<span className="flex items-center gap-1">
+									<Calendar className="h-4 w-4 flex-shrink-0" />
+									<span>{new Date(purchase.purchaseDate).toLocaleDateString()}</span>
+								</span>
+								<span className="font-medium">
+									₹{purchase.totalAmount.toFixed(2)}
+								</span>
+							</div>
+						</div>
+						<Badge variant="secondary" className="flex-shrink-0">
+							{purchase.status.charAt(0).toUpperCase() + purchase.status.slice(1)}
+						</Badge>
+					</div>
+				</CardHeader>
+			</Card>
+		);
+	};
+
+	return (
+		<div className="flex flex-col min-h-screen">
+			<SiteHeader name="Purchase Orders" />
+			<div className="flex-1 space-y-4 p-4 sm:p-6">
+				{/* Header */}
+				<div className="space-y-4">
+					<div>
+						<h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Purchase Orders</h1>
+						<p className="text-muted-foreground text-sm sm:text-base mt-1">
+							Manage and track all your purchase orders
+						</p>
+					</div>
+					<div className="flex flex-col sm:flex-row gap-2 sm:gap-4">
+						<Button
+							variant="outline"
+							size="sm"
+							onClick={fetchPurchases}
+							disabled={isLoadingPurchases}
+							className="flex items-center justify-center gap-2 w-full sm:w-auto"
+						>
+							<RefreshCw className={`h-4 w-4 ${isLoadingPurchases ? 'animate-spin' : ''}`} />
+							Refresh
+						</Button>
+						<Link href="/purchases/create">
+							<Button className="w-full sm:w-auto">
+								<Plus className="h-4 w-4 mr-2" />
+								New Purchase
+							</Button>
+						</Link>
+					</div>
+				</div>
+
+				{/* Error State */}
+				{error && (
+					<Card className="border-red-200 bg-red-50">
+						<CardContent className="py-3 sm:py-4">
+							<div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+								<p className="text-red-800 text-sm">Error: {error}</p>
+								<Button
+									variant="outline"
+									size="sm"
+									onClick={fetchPurchases}
+									disabled={isLoadingPurchases}
+									className="text-red-800 border-red-300 hover:bg-red-100 w-full sm:w-auto"
+								>
+									<RefreshCw className={`h-4 w-4 mr-2 ${isLoadingPurchases ? 'animate-spin' : ''}`} />
+									Retry
+								</Button>
+							</div>
+						</CardContent>
+					</Card>
+				)}
+
+				{/* Loading State */}
+				{isLoadingPurchases ? (
+					<div className="space-y-3 sm:space-y-4">
+						{[1, 2, 3].map((i) => (
+							<Card key={i} className="animate-pulse">
+								<CardContent className="py-4 sm:py-6">
+									<div className="space-y-2 sm:space-y-3">
+										<div className="h-4 bg-muted rounded w-3/4 sm:w-1/4"></div>
+										<div className="h-3 bg-muted rounded w-full sm:w-1/2"></div>
+										<div className="h-3 bg-muted rounded w-2/3 sm:w-1/3"></div>
+									</div>
+								</CardContent>
+							</Card>
+						))}
+					</div>
+				) : (
+					<>
+						{/* Search and Filters */}
+						<div className="space-y-3">			
+							{/* Date Filters Row */}
+							<div className="flex flex-col sm:flex-row gap-3 sm:items-end">
+								{/* Date Range Filter */}
+								<div className="flex flex-col sm:flex-row gap-3 flex-1">
+									<div className="flex-1 sm:max-w-[200px]">
+										<div className="space-y-1">
+											<label className="text-sm font-medium text-muted-foreground">From Date</label>
+											<div className="[&_label]:hidden">
+												<DatePicker 
+													key={`from-${datePickerKey}`}
+													setPurchase={handleFromDateChange} 
+												/>
+											</div>
+										</div>
+									</div>
+									<div className="flex-1 sm:max-w-[200px]">
+										<div className="space-y-1">
+											<label className="text-sm font-medium text-muted-foreground">To Date</label>
+											<div className="[&_label]:hidden">
+												<DatePicker 
+													key={`to-${datePickerKey}`}
+													setPurchase={handleToDateChange} 
+												/>
+											</div>
+										</div>
+									</div>
+								</div>
+								
+								{/* Clear Date Filter */}
+								{(dateRange.from || dateRange.to) && (
+									<Button
+										variant="ghost"
+										size="sm"
+										onClick={clearDateFilter}
+										className="h-10 px-3 mt-6 sm:mt-0"
+									>
+										<X className="h-4 w-4 mr-2" />
+										Clear Dates
+									</Button>
+								)}
+							</div>
+							{/* Search Bar */}
+							<div className="relative">
+								<Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+								<Input
+									placeholder="Search purchases..."
+									value={purchaseSearchQuery}
+									onChange={(e) => setPurchaseSearchQuery(e.target.value)}
+									className="pl-10 h-10"
+								/>
+							</div>
+						</div>
+
+						{/* Tabs */}
+						<Tabs defaultValue="pending" className="space-y-4 sm:space-y-6">
+							<TabsList className="grid w-full grid-cols-3 h-auto">
+								<TabsTrigger value="pending" className="cursor-pointer flex flex-col sm:flex-row items-center gap-1 sm:gap-2 p-2 sm:p-3 text-xs sm:text-sm">
+									<span>Pending</span>
+									<Badge variant="secondary" className="text-xs">{applyAllFilters(pendingPurchases).length}</Badge>
+								</TabsTrigger>
+								<TabsTrigger value="received" className="cursor-pointer flex flex-col sm:flex-row items-center gap-1 sm:gap-2 p-2 sm:p-3 text-xs sm:text-sm">
+									<span>Received</span>
+									<Badge variant="secondary" className="text-xs">{applyAllFilters(receivedPurchases).length}</Badge>
+								</TabsTrigger>
+								<TabsTrigger value="cancelled" className="cursor-pointer flex flex-col sm:flex-row items-center gap-1 sm:gap-2 p-2 sm:p-3 text-xs sm:text-sm">
+									<span>Cancelled</span>
+									<Badge variant="secondary" className="text-xs">{applyAllFilters(cancelledPurchases).length}</Badge>
+								</TabsTrigger>
+							</TabsList>
+
+							<TabsContent value="pending" className="space-y-3 sm:space-y-4">
+								{applyAllFilters(pendingPurchases).length > 0 ? (
+									applyAllFilters(pendingPurchases).map(purchase => renderPurchaseCard(purchase))
+								) : (
+									<Card>
+										<CardContent className="py-6 sm:py-8 text-center">
+											<Package className="h-10 w-10 sm:h-12 sm:w-12 mx-auto text-muted-foreground mb-3 sm:mb-4" />
+											<p className="text-muted-foreground text-sm sm:text-base">No pending purchases found</p>
+										</CardContent>
+									</Card>
+								)}
+							</TabsContent>
+
+							<TabsContent value="received" className="space-y-3 sm:space-y-4">
+								{applyAllFilters(receivedPurchases).length > 0 ? (
+									applyAllFilters(receivedPurchases).map(purchase => renderPurchaseCard(purchase))
+								) : (
+									<Card>
+										<CardContent className="py-6 sm:py-8 text-center">
+											<Package className="h-10 w-10 sm:h-12 sm:w-12 mx-auto text-muted-foreground mb-3 sm:mb-4" />
+											<p className="text-muted-foreground text-sm sm:text-base">No received purchases found</p>
+										</CardContent>
+									</Card>
+								)}
+							</TabsContent>
+
+							<TabsContent value="cancelled" className="space-y-3 sm:space-y-4">
+								{applyAllFilters(cancelledPurchases).length > 0 ? (
+									applyAllFilters(cancelledPurchases).map(purchase => renderPurchaseCard(purchase))
+								) : (
+									<Card>
+										<CardContent className="py-6 sm:py-8 text-center">
+											<Package className="h-10 w-10 sm:h-12 sm:w-12 mx-auto text-muted-foreground mb-3 sm:mb-4" />
+											<p className="text-muted-foreground text-sm sm:text-base">No cancelled purchases found</p>
+										</CardContent>
+									</Card>
+								)}
+							</TabsContent>
+						</Tabs>
+					</>
+				)}
+			</div>
+
+			{/* Purchase Details Modal */}
+			{selectedPurchase && (
+				<div
+					className="fixed inset-0 z-50 bg-white/50 backdrop-blur-sm flex items-center justify-center p-4"
+					onClick={closePurchaseDetails}
+				>
+					<div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden"
+						onClick={(e) => e.stopPropagation()}
+					>
+						{/* Modal Header */}
+						<div className="flex items-center justify-between p-4 sm:p-6 border-b">
+							<div className="flex-1 min-w-0">
+								<h2 className="text-lg sm:text-xl font-semibold truncate">
+									Purchase Order Details - {selectedPurchase.supplier.name}
+								</h2>
+								<div className="flex items-center gap-2 mt-1">
+									<span className="text-sm text-muted-foreground">#{selectedPurchase.invoiceNo}</span>
+									<Badge variant="secondary">
+										{selectedPurchase.status.charAt(0).toUpperCase() + selectedPurchase.status.slice(1)}
+									</Badge>
+								</div>
+							</div>
+							<Button
+								variant="ghost"
+								size="sm"
+								onClick={closePurchaseDetails}
+								className="flex-shrink-0 ml-2"
+							>
+								<X className="h-4 w-4" />
+							</Button>
+						</div>
+
+						{/* Modal Content */}
+						<div className="p-4 sm:p-6 overflow-y-auto max-h-[calc(90vh-140px)]">
+							<div className="space-y-4 sm:space-y-6">
+								{/* Purchase Summary */}
+								<div className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-4 bg-muted/30 rounded-lg">
+									<div>
+										<p className="text-sm font-medium text-muted-foreground">Supplier</p>
+										<div className="flex items-center gap-2 mt-1">
+											<Building2 className="h-4 w-4 text-muted-foreground" />
+											<p className="text-base font-semibold">{selectedPurchase.supplier.name}</p>
+										</div>
+									</div>
+									<div>
+										<p className="text-sm font-medium text-muted-foreground">Purchase Date</p>
+										<div className="flex items-center gap-2 mt-1">
+											<Calendar className="h-4 w-4 text-muted-foreground" />
+											<p className="text-base">{new Date(selectedPurchase.purchaseDate).toLocaleDateString()}</p>
+										</div>
+									</div>
+									<div>
+										<p className="text-sm font-medium text-muted-foreground">Total Amount</p>
+										<p className="text-base font-semibold">₹{selectedPurchase.totalAmount.toFixed(2)}</p>
+									</div>
+								</div>
+
+								{/* Purchase Items */}
+								<div>
+									<div className="flex items-center gap-2 mb-3 sm:mb-4">
+										<Package className="h-5 w-5 text-muted-foreground" />
+										<h3 className="text-lg font-medium">Purchase Items ({selectedPurchase.items.length})</h3>
+									</div>
+									<div className="space-y-3">
+										{selectedPurchase.items.map((item: any, index: number) => (
+											<div key={index} className="border rounded-lg p-4">
+												<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+													<div className="flex-1 min-w-0">
+														<h4 className="font-medium text-base">{item.product.name}</h4>
+														<p className="text-sm text-muted-foreground mt-1">
+															{item.variant.name} • {item.variant.size}
+														</p>
+														<div className="flex flex-col sm:flex-row gap-2 mt-2 text-sm text-muted-foreground">
+															<span>Quantity: <span className="font-medium text-foreground">{item.quantity}</span></span>
+															<span>Unit Price: <span className="font-medium text-foreground">₹{item.unitPrice.toFixed(2)}</span></span>
+															<span>Total: <span className="font-medium text-foreground">₹{item.totalPrice.toFixed(2)}</span></span>
+														</div>
+													</div>
+												</div>
+											</div>
+										))}
+									</div>
+								</div>
+
+								{/* Status Management Section */}
+								<div className="p-4 bg-muted/30 rounded-lg">
+									<h4 className="text-sm font-medium text-muted-foreground mb-3">
+										Change Status (Current: {selectedPurchase.status})
+									</h4>
+									<div className="flex flex-col sm:flex-row gap-2">
+										{selectedPurchase.status.toLowerCase() === 'pending' && (
+											<>
+												<Button
+													size="sm"
+													onClick={() => handleStatusUpdate(selectedPurchase, 'received')}
+													className="flex-1"
+												>
+													Mark as Received
+												</Button>
+												<Button
+													size="sm"
+													variant="outline"
+													onClick={() => handleStatusUpdate(selectedPurchase, 'cancelled')}
+													className="flex-1"
+												>
+													Cancel Purchase
+												</Button>
+											</>
+										)}
+										{selectedPurchase.status.toLowerCase() === 'received' && (
+											<Button
+												size="sm"
+												variant="outline"
+												onClick={() => handleStatusUpdate(selectedPurchase, 'pending')}
+												className="flex-1"
+											>
+												Mark as Pending
+											</Button>
+										)}
+										{selectedPurchase.status.toLowerCase() === 'cancelled' && (
+											<Button
+												size="sm"
+												variant="outline"
+												onClick={() => handleStatusUpdate(selectedPurchase, 'pending')}
+												className="flex-1"
+											>
+												Reactivate Purchase
+											</Button>
+										)}
+										{/* Fallback buttons for any status */}
+										{!['pending', 'received', 'cancelled'].includes(selectedPurchase.status.toLowerCase()) && (
+											<div className="text-sm text-muted-foreground">
+												Unknown status: {selectedPurchase.status}
+											</div>
+										)}
+									</div>
+								</div>
+
+								{/* Action Buttons */}
+								<div className="flex flex-col sm:flex-row gap-3 pt-4 border-t">
+									{selectedPurchase.status === 'pending' && (
+										<Button
+											className="flex-1"
+											onClick={() => handleApprovePurchase(selectedPurchase)}
+										>
+											Approve Purchase
+										</Button>
+									)}
+									{selectedPurchase.status === 'received' && (
+										<Button
+											variant="outline"
+											className="flex-1"
+											onClick={() => handleDownloadPDF(selectedPurchase)}
+										>
+											<Download className="h-4 w-4 mr-2" />
+											Download PDF
+										</Button>
+									)}
+									<Button
+										variant="destructive"
+										onClick={() => handleDeletePurchase(selectedPurchase.id)}
+									>
+										Delete Purchase
+									</Button>
+									<Button
+										variant="outline"
+										onClick={closePurchaseDetails}
+									>
+										Close
+									</Button>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			)}
+		</div>
+	);
 }

@@ -56,14 +56,17 @@ model Customer {
 }
 
 model Products {
-  name      String
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
-  id        String     @id @default(cuid())
-  HSN       Int
-  variants  Variants[]
+  name        String
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  id          String       @id @default(cuid())
+  HSN         Int
+  barcode     String?      @unique
+  barcodeType BarcodeType? @default(CODE128)
+  variants    Variants[]
 
   @@index([name])
+  @@index([barcode])
 }
 
 model Variants {
@@ -193,6 +196,24 @@ enum Role {
 
 enum PurchaseStatus {
   PENDING
+  ORDERED
+  APPROVED
   RECEIVED
   CANCELLED
+}
+
+enum BarcodeType {
+  CODE128
+  CODE39
+  CODE93
+  EAN13
+  EAN8
+  UPC_A
+  UPC_E
+  QR_CODE
+  DATA_MATRIX
+  PDF417
+  AZTEC
+  CODABAR
+  ITF
 }

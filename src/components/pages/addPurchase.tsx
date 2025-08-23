@@ -55,11 +55,8 @@ export default function PurchaseEntryForm() {
 		removeItem,
 		updateFormField,
 		resetForm,
-		calculateSubtotal,
-		calculateTaxableAmount,
 		calculateTaxAmount,
 		calculateRoundingOff,
-		calculateTotal,
 		updateCalculations,
 		savePurchase
 	} = usePurchaseStore();
@@ -201,7 +198,7 @@ export default function PurchaseEntryForm() {
 	return (
 		<Suspense fallback={<Loading />}>
 			<div className="container mx-auto p-6 py-2">
-				<SiteHeader name="Purchase Order" />
+				<SiteHeader name="Create Purchase Order" />
 
 				<form className="mt-6" onSubmit={handleSubmit(onSubmit)}>
 					<div className="grid grid-cols-1 lg:grid-cols-12 gap-6">

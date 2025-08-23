@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { fetchMappedPurchases } from "@/utils/purchase";
 
 interface PurchaseItem {
     id: string | number;
@@ -7,6 +8,21 @@ interface PurchaseItem {
     price: number;
     discount: number;
     total: number;
+}
+
+export async function GET(){
+    try {
+        // Use the utility function to get mapped purchases
+        const result = await fetchMappedPurchases();
+        return NextResponse.json(result);
+    } catch (error) {
+        console.error("Error fetching purchases:", error);
+        return NextResponse.json({ 
+            success: false, 
+            message: "Error fetching purchases.", 
+            error: error instanceof Error ? error.message : error 
+        }, { status: 500 });
+    }
 }
 
 export async function POST(req: NextRequest) {

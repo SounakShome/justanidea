@@ -35,10 +35,10 @@ function isValidDate(date: Date | undefined): date is Date {
 export default function Calendar28({ setPurchase }: { setPurchase?: (date: Date) => void }) {
     const [open, setOpen] = React.useState(false)
     const [date, setDate] = React.useState<Date | undefined>(
-        new Date(Date.now())
+        undefined
     )
-    const [month, setMonth] = React.useState<Date | undefined>(date)
-    const [value, setValue] = React.useState(formatDate(date))
+    const [month, setMonth] = React.useState<Date | undefined>(new Date())
+    const [value, setValue] = React.useState("")
 
     return (
         <div className="flex flex-col gap-3">
@@ -52,8 +52,15 @@ export default function Calendar28({ setPurchase }: { setPurchase?: (date: Date)
                     placeholder="June 01, 2025"
                     className="bg-background pr-10"
                     onChange={(e) => {
-                        const date = new Date(e.target.value)
-                        setValue(e.target.value)
+                        const inputValue = e.target.value
+                        setValue(inputValue)
+                        
+                        if (inputValue === "") {
+                            setDate(undefined)
+                            return
+                        }
+                        
+                        const date = new Date(inputValue)
                         if (isValidDate(date)) {
                             setDate(date)
                             setMonth(date)
@@ -91,11 +98,15 @@ export default function Calendar28({ setPurchase }: { setPurchase?: (date: Date)
                             month={month}
                             onMonthChange={setMonth}
                             onSelect={(date) => {
-                                setValue(formatDate(date))
-                                if (isValidDate(date)) {
+                                if (date) {
+                                    setValue(formatDate(date))
                                     setDate(date)
                                     setMonth(date)
                                     setPurchase?.(date)
+                                    setOpen(false)
+                                } else {
+                                    setValue("")
+                                    setDate(undefined)
                                 }
                             }}
                         />

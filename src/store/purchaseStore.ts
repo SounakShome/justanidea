@@ -1,11 +1,13 @@
 import { create } from 'zustand'
-import { Supplier, Variants, PurchaseFormValues, PurchaseItem } from "@/types/addPurchases"
+import { Supplier, Variants, PurchaseFormValues, PurchaseItem, CompletedPurchase } from "@/types/addPurchases"
 
 interface PurchaseState {
   // Data
   suppliers: Supplier[]
   products: Variants[]
   selectedSupplier: Supplier | null
+  purchases: CompletedPurchase[]
+  filteredPurchases: CompletedPurchase[]
   
   // Form state
   purchaseForm: PurchaseFormValues
@@ -13,19 +15,35 @@ interface PurchaseState {
   // Loading states
   isLoadingSuppliers: boolean
   isLoadingProducts: boolean
+  isLoadingPurchases: boolean
   isSaving: boolean
   
-  // Search state
+  // Search & Filter state
   productSearchQuery: string
+  purchaseSearchQuery: string
+  selectedStatus: string
+  selectedSupplierFilter: string
+  dateRange: { from: Date | null; to: Date | null }
+  sortBy: 'date' | 'amount' | 'invoice' | 'supplier'
+  sortOrder: 'asc' | 'desc'
   
   // Actions
   setSuppliers: (suppliers: Supplier[]) => void
   setProducts: (products: Variants[]) => void
   setSelectedSupplier: (supplier: Supplier | null) => void
+  setPurchases: (purchases: CompletedPurchase[]) => void
   setLoadingSuppliers: (loading: boolean) => void
   setLoadingProducts: (loading: boolean) => void
+  setLoadingPurchases: (loading: boolean) => void
   setSaving: (saving: boolean) => void
   setProductSearchQuery: (query: string) => void
+  setPurchaseSearchQuery: (query: string) => void
+  setSelectedStatus: (status: string) => void
+  setSelectedSupplierFilter: (supplierId: string) => void
+  setDateRange: (range: { from: Date | null; to: Date | null }) => void
+  setSortBy: (sortBy: 'date' | 'amount' | 'invoice' | 'supplier') => void
+  setSortOrder: (order: 'asc' | 'desc') => void
+  clearPurchaseFilters: () => void
   
   // Form actions
   updateFormField: <K extends keyof PurchaseFormValues>(field: K, value: PurchaseFormValues[K]) => void
@@ -45,10 +63,16 @@ interface PurchaseState {
   calculateTotal: () => number
   updateCalculations: () => void
   
+  // Purchase filtering and sorting
+  filterAndSortPurchases: () => void
+  
   // API operations
   fetchSuppliers: () => Promise<void>
   fetchProducts: (supplierId: string, query?: string) => Promise<void>
+  fetchPurchases: () => Promise<void>
   savePurchase: () => Promise<{ success: boolean; id: string } | null>
+  updatePurchaseStatus: (purchaseId: string, status: CompletedPurchase['status']) => Promise<boolean>
+  deletePurchase: (purchaseId: string) => Promise<boolean>
 }
 
 const initialFormState: PurchaseFormValues = {
@@ -73,20 +97,69 @@ export const usePurchaseStore = create<PurchaseState>((set, get) => ({
   suppliers: [],
   products: [],
   selectedSupplier: null,
+  purchases: [],
+  filteredPurchases: [],
   purchaseForm: initialFormState,
   isLoadingSuppliers: false,
   isLoadingProducts: false,
+  isLoadingPurchases: false,
   isSaving: false,
   productSearchQuery: "",
+  purchaseSearchQuery: "",
+  selectedStatus: "all",
+  selectedSupplierFilter: "all",
+  dateRange: { from: null, to: null },
+  sortBy: "date",
+  sortOrder: "desc",
 
   // Basic setters
   setSuppliers: (suppliers) => set({ suppliers }),
   setProducts: (products) => set({ products }),
   setSelectedSupplier: (selectedSupplier) => set({ selectedSupplier }),
+  setPurchases: (purchases) => {
+    set({ purchases })
+    get().filterAndSortPurchases()
+  },
   setLoadingSuppliers: (isLoadingSuppliers) => set({ isLoadingSuppliers }),
   setLoadingProducts: (isLoadingProducts) => set({ isLoadingProducts }),
+  setLoadingPurchases: (isLoadingPurchases) => set({ isLoadingPurchases }),
   setSaving: (isSaving) => set({ isSaving }),
   setProductSearchQuery: (productSearchQuery) => set({ productSearchQuery }),
+  setPurchaseSearchQuery: (purchaseSearchQuery) => {
+    set({ purchaseSearchQuery })
+    get().filterAndSortPurchases()
+  },
+  setSelectedStatus: (selectedStatus) => {
+    set({ selectedStatus })
+    get().filterAndSortPurchases()
+  },
+  setSelectedSupplierFilter: (selectedSupplierFilter) => {
+    set({ selectedSupplierFilter })
+    get().filterAndSortPurchases()
+  },
+  setDateRange: (dateRange) => {
+    set({ dateRange })
+    get().filterAndSortPurchases()
+  },
+  setSortBy: (sortBy) => {
+    set({ sortBy })
+    get().filterAndSortPurchases()
+  },
+  setSortOrder: (sortOrder) => {
+    set({ sortOrder })
+    get().filterAndSortPurchases()
+  },
+  clearPurchaseFilters: () => {
+    set({
+      purchaseSearchQuery: "",
+      selectedStatus: "all",
+      selectedSupplierFilter: "all",
+      dateRange: { from: null, to: null },
+      sortBy: "date",
+      sortOrder: "desc"
+    })
+    get().filterAndSortPurchases()
+  },
 
   // Form actions
   updateFormField: (field, value) => {
@@ -232,6 +305,93 @@ export const usePurchaseStore = create<PurchaseState>((set, get) => ({
     }))
   },
 
+  // Purchase filtering and sorting
+  filterAndSortPurchases: () => {
+    const { 
+      purchases, 
+      purchaseSearchQuery, 
+      selectedStatus, 
+      selectedSupplierFilter, 
+      dateRange, 
+      sortBy, 
+      sortOrder 
+    } = get()
+    
+    // Safety check: ensure purchases is an array
+    if (!Array.isArray(purchases)) {
+      console.warn('purchases is not an array:', purchases)
+      set({ filteredPurchases: [] })
+      return
+    }
+    
+    let filtered = [...purchases]
+    
+    // Apply search filter
+    if (purchaseSearchQuery.trim()) {
+      const query = purchaseSearchQuery.toLowerCase()
+      filtered = filtered.filter(purchase =>
+        purchase.invoiceNo.toLowerCase().includes(query) ||
+        purchase.supplier.name.toLowerCase().includes(query) ||
+        purchase.items.some(item => 
+          item.productName.toLowerCase().includes(query) ||
+          item.variantName.toLowerCase().includes(query)
+        )
+      )
+    }
+    
+    // Apply status filter
+    if (selectedStatus !== 'all') {
+      filtered = filtered.filter(purchase => purchase.status === selectedStatus)
+    }
+    
+    // Apply supplier filter
+    if (selectedSupplierFilter !== 'all') {
+      filtered = filtered.filter(purchase => purchase.supplier.id === selectedSupplierFilter)
+    }
+    
+    // Apply date range filter
+    if (dateRange.from && dateRange.to) {
+      filtered = filtered.filter(purchase => {
+        const purchaseDate = new Date(purchase.purchaseDate)
+        return purchaseDate >= dateRange.from! && purchaseDate <= dateRange.to!
+      })
+    }
+    
+    // Apply sorting
+    filtered.sort((a, b) => {
+      let aValue: any, bValue: any
+      
+      switch (sortBy) {
+        case 'date':
+          aValue = new Date(a.purchaseDate).getTime()
+          bValue = new Date(b.purchaseDate).getTime()
+          break
+        case 'amount':
+          aValue = a.totalAmount
+          bValue = b.totalAmount
+          break
+        case 'invoice':
+          aValue = a.invoiceNo.toLowerCase()
+          bValue = b.invoiceNo.toLowerCase()
+          break
+        case 'supplier':
+          aValue = a.supplier.name.toLowerCase()
+          bValue = b.supplier.name.toLowerCase()
+          break
+        default:
+          return 0
+      }
+      
+      if (sortOrder === 'asc') {
+        return aValue < bValue ? -1 : aValue > bValue ? 1 : 0
+      } else {
+        return aValue > bValue ? -1 : aValue < bValue ? 1 : 0
+      }
+    })
+    
+    set({ filteredPurchases: filtered })
+  },
+
   // API operations
   fetchSuppliers: async () => {
     try {
@@ -295,6 +455,9 @@ export const usePurchaseStore = create<PurchaseState>((set, get) => ({
         throw new Error("Failed to save purchase")
       }
 
+      // Refresh purchases list after successful save
+      await get().fetchPurchases()
+
       // Simulate successful response
       return {
         success: true,
@@ -305,6 +468,78 @@ export const usePurchaseStore = create<PurchaseState>((set, get) => ({
       throw error
     } finally {
       set({ isSaving: false })
+    }
+  },
+
+  fetchPurchases: async () => {
+    try {
+      set({ isLoadingPurchases: true })
+      const response = await fetch("/api/purchase")
+      if (!response.ok) {
+        throw new Error("Failed to fetch purchases")
+      }
+      const result = await response.json()
+      // Handle the new utility function response format
+      const purchases = result.success ? result.data : []
+      set({ purchases: purchases || [] })
+      get().filterAndSortPurchases()
+    } catch (error) {
+      console.error("Error loading purchases:", error)
+      // Set empty array on error to prevent iteration issues
+      set({ purchases: [] })
+      throw error
+    } finally {
+      set({ isLoadingPurchases: false })
+    }
+  },
+
+  updatePurchaseStatus: async (purchaseId: string, status: CompletedPurchase['status']) => {
+    try {
+      const response = await fetch(`/api/purchases/${purchaseId}/status`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ status }),
+      })
+
+      if (response.ok) {
+        // Update local state
+        const { purchases } = get()
+        const updatedPurchases = purchases.map(purchase =>
+          purchase.id === purchaseId
+            ? { ...purchase, status, updatedAt: new Date() }
+            : purchase
+        )
+        set({ purchases: updatedPurchases })
+        get().filterAndSortPurchases()
+        return true
+      }
+      return false
+    } catch (error) {
+      console.error("Error updating purchase status:", error)
+      return false
+    }
+  },
+
+  deletePurchase: async (purchaseId: string) => {
+    try {
+      const response = await fetch(`/api/purchases/${purchaseId}`, {
+        method: "DELETE",
+      })
+
+      if (response.ok) {
+        // Remove from local state
+        const { purchases } = get()
+        const updatedPurchases = purchases.filter(purchase => purchase.id !== purchaseId)
+        set({ purchases: updatedPurchases })
+        get().filterAndSortPurchases()
+        return true
+      }
+      return false
+    } catch (error) {
+      console.error("Error deleting purchase:", error)
+      return false
     }
   },
 }))

@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Search, ChevronDown, ChevronUp, Plus } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { CompactBarcodeScanner } from "@/components/CompactBarcodeScanner";
 
 // Define proper types
 interface Variant {
@@ -95,23 +96,48 @@ export function NewOrderLine({ products, onProductSelect }: NewOrderLineProps) {
     }
   };
 
+  const handleBarcodeScanned = (code: string) => {
+    // Search for products with matching barcode
+    const matchingProduct = products.find(product => 
+      product.variants.some(variant => variant.id === code || variant.name.includes(code))
+    );
+    
+    if (matchingProduct) {
+      setQuery(matchingProduct.name);
+      handleSelectProduct(matchingProduct);
+    } else {
+      // If no product found, set the barcode as search query
+      setQuery(code);
+      setShowResults(true);
+    }
+  };
+
   return (
     <div className="border border-dashed rounded-md p-4" ref={wrapperRef}>
       <h3 className="font-medium mb-4">Add Product</h3>
       
       {/* Product Search */}
       <div className="relative mb-4">
-        <div className="flex items-center border rounded-md px-3 py-2 focus-within:ring-1 focus-within:ring-primary">
-          <Search className="h-4 w-4 mr-2 text-muted-foreground" />
-          <Input
-            className="border-0 p-0 shadow-none focus-visible:ring-0"
-            placeholder="Search for a product..."
-            value={query}
-            onChange={(e) => {
-              setQuery(e.target.value);
-              setShowResults(true);
-            }}
-            onFocus={() => setShowResults(true)}
+        <div className="flex items-center gap-2 mb-2">
+          <div className="flex-1">
+            <div className="flex items-center border rounded-md px-3 py-2 focus-within:ring-1 focus-within:ring-primary">
+              <Search className="h-4 w-4 mr-2 text-muted-foreground" />
+              <Input
+                className="border-0 p-0 shadow-none focus-visible:ring-0"
+                placeholder="Search for a product..."
+                value={query}
+                onChange={(e) => {
+                  setQuery(e.target.value);
+                  setShowResults(true);
+                }}
+                onFocus={() => setShowResults(true)}
+              />
+            </div>
+          </div>
+          <CompactBarcodeScanner 
+            onScanSuccessAction={handleBarcodeScanned}
+            buttonText="Scan"
+            buttonVariant="outline"
           />
         </div>
         

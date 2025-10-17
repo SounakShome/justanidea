@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { ExtendedVariant, Product } from "@/types/inventory";
 import { useInventoryStore } from '@/store';
+import { CompactBarcodeScanner } from "@/components/CompactBarcodeScanner";
 
 export default function InventoryPage() {
     const { 
@@ -122,6 +123,11 @@ export default function InventoryPage() {
         }
     };
 
+    const handleBarcodeScanned = (code: string) => {
+        // Use the barcode as search query to find matching products
+        setSearchQuery(code);
+    };
+
     // Fetch inventory items on component mount
     useEffect(() => {
         refreshProducts();
@@ -199,13 +205,18 @@ export default function InventoryPage() {
                             <div className="relative flex-grow">
                                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
                                 <Input
-                                    placeholder="Search by product name, variant, or size..."
+                                    placeholder="Search by product name, variant, or barcode..."
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
                                     className="pl-10"
                                 />
                             </div>
                             <div className="flex gap-2">
+                                <CompactBarcodeScanner 
+                                    onScanSuccessAction={handleBarcodeScanned}
+                                    buttonText="Scan UPC"
+                                    buttonVariant="outline"
+                                />
                                 <Select value={selectedCategory} onValueChange={setSelectedCategory}>
                                     <SelectTrigger className="w-48">
                                         <SelectValue placeholder="Filter by category" />

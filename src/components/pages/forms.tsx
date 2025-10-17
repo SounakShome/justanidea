@@ -20,6 +20,7 @@ import {
 import { Check, ChevronsUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { CompactBarcodeScanner } from "@/components/CompactBarcodeScanner";
 
 // Interface for combobox items
 interface ComboboxItem {
@@ -561,17 +562,20 @@ export function ProductForm({ onClose }: { onClose?: () => void }) {
   const [products, setProducts] = useState<ProductFormData[]>([{
     name: "",
     HSN: "",
+    barcode: "",
   }]);
 
   interface ProductFormData {
     name: string;
     HSN: string;
+    barcode: string;
   }
 
   const addProductInstance = () => {
     setProducts([...products, {
       name: "",
       HSN: "",
+      barcode: "",
     }]);
   };
 
@@ -670,6 +674,23 @@ export function ProductForm({ onClose }: { onClose?: () => void }) {
                   />
                 </FormField>
               </div>
+              
+              {/* UPC Barcode Field */}
+              <FormField label="UPC Barcode (Optional)" error="">
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="123456789012"
+                    value={product.barcode}
+                    onChange={(e) => updateProduct(index, "barcode", e.target.value)}
+                    className="flex-1"
+                  />
+                  <CompactBarcodeScanner 
+                    onScanSuccessAction={(code) => updateProduct(index, "barcode", code)}
+                    buttonText="Scan UPC"
+                    buttonVariant="outline"
+                  />
+                </div>
+              </FormField>
             </CardContent>
           </Card>
         ))}

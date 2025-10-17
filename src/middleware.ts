@@ -7,9 +7,19 @@ const protectedPaths = ['/api'];
 export function middleware(request: NextRequest) {
     const { nextUrl, headers } = request;
 
+    // Add no-cache headers for development
+    const response = NextResponse.next();
+    
+    // Prevent caching during development
+    if (process.env.NODE_ENV === 'development') {
+        response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+        response.headers.set('Pragma', 'no-cache');
+        response.headers.set('Expires', '0');
+    }
+
     // Only run on protected API routes
     if (!protectedPaths.some((path) => nextUrl.pathname.startsWith(path))) {
-        return NextResponse.next();
+        return response;
     }
 
     const userAgent = headers.get('user-agent') || '';
@@ -32,9 +42,9 @@ export function middleware(request: NextRequest) {
     //     );
     // }
 
-    return NextResponse.next();
+    return response;
 }
 
 export const config = {
-    matcher: ['/api/:path*'], // Applies only to API routes
+    matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'], // Apply to all routes except static files
 };

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { Search, Package, PlusCircle, TrendingDown, Edit, Trash2, Eye, Plus } from 'lucide-react';
+import { Search, Package, PlusCircle, TrendingDown, Edit, Trash2, Eye, Plus, Filter, X, BarChart3, AlertTriangle, ChevronDown } from 'lucide-react';
 import { SiteHeader } from "@/components/site-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -40,6 +40,7 @@ export default function InventoryPage() {
     const [viewingVariant, setViewingVariant] = useState<ExtendedVariant | null>(null);
     const [deletingVariant, setDeletingVariant] = useState<ExtendedVariant | null>(null);
     const [stockUpdateVariant, setStockUpdateVariant] = useState<ExtendedVariant | null>(null);
+    const [showFilters, setShowFilters] = useState(false);
     
     // Edit form state
     const [editForm, setEditForm] = useState({
@@ -154,261 +155,374 @@ export default function InventoryPage() {
 
     return (
         <>
-            <div className="px-4 sm:px-6">
-                <SiteHeader name="Inventory" />
-            </div>
-            <div className="flex-1 space-y-4 p-4 sm:p-6">
-                {/* Stats Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <Card>
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">Total Stock</CardTitle>
-                            <Package className="h-4 w-4 text-muted-foreground" />
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold">{allVariants.length}</div>
-                            <p className="text-xs text-muted-foreground">Items in inventory</p>
-                        </CardContent>
-                    </Card>
-
-                    <Card>
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">Products</CardTitle>
-                            <Package className="h-4 w-4 text-muted-foreground" />
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold">{totalProducts}</div>
-                            <p className="text-xs text-muted-foreground">Unique products</p>
-                        </CardContent>
-                    </Card>
-
-                    <Card>
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">Low Stock Items</CardTitle>
-                            <TrendingDown className="h-4 w-4 text-muted-foreground" />
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold">{lowStockItems}</div>
-                            <p className="text-xs text-muted-foreground">Items below 10 units</p>
-                        </CardContent>
-                    </Card>
+            {/* Sticky Header */}
+            <div className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">
+                <div className="px-3 sm:px-6">
+                    <SiteHeader name="Inventory" />
                 </div>
+                {/* Version indicator for cache busting verification */}
+                {process.env.NODE_ENV === 'development' && (
+                    <div className="absolute top-2 right-2 px-2 py-0.5 bg-green-500 text-white text-[10px] rounded-full font-mono">
+                        v2.0 Mobile
+                    </div>
+                )}
+            </div>
 
-                {/* Search and Add Button */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Inventory Management</CardTitle>
-                        <CardDescription>Search and manage your inventory items</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="flex flex-col sm:flex-row gap-4">
-                            <div className="relative flex-grow">
-                                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                                <Input
-                                    placeholder="Search by product name, variant, or barcode..."
-                                    value={searchQuery}
-                                    onChange={(e) => setSearchQuery(e.target.value)}
-                                    className="pl-10"
-                                />
-                            </div>
-                            <div className="flex gap-2">
-                                <CompactBarcodeScanner 
-                                    onScanSuccessAction={handleBarcodeScanned}
-                                    buttonText="Scan UPC"
-                                    buttonVariant="outline"
-                                />
-                                <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                                    <SelectTrigger className="w-48">
-                                        <SelectValue placeholder="Filter by category" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="all">All Categories</SelectItem>
-                                        <SelectItem value="1000">Textiles (1000+)</SelectItem>
-                                        <SelectItem value="2000">Food Products (2000+)</SelectItem>
-                                        <SelectItem value="3000">Electronics (3000+)</SelectItem>
-                                        <SelectItem value="4000">Machinery (4000+)</SelectItem>
-                                        <SelectItem value="5000">Chemicals (5000+)</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                                <Select value={`${sortBy}-${sortOrder}`} onValueChange={(value) => {
-                                    const [field, order] = value.split('-') as ['name' | 'price' | 'stock', 'asc' | 'desc'];
-                                    setSortBy(field);
-                                    setSortOrder(order);
-                                }}>
-                                    <SelectTrigger className="w-40">
-                                        <SelectValue placeholder="Sort by" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="name-asc">Name A-Z</SelectItem>
-                                        <SelectItem value="name-desc">Name Z-A</SelectItem>
-                                        <SelectItem value="price-asc">Price Low-High</SelectItem>
-                                        <SelectItem value="price-desc">Price High-Low</SelectItem>
-                                        <SelectItem value="stock-asc">Stock Low-High</SelectItem>
-                                        <SelectItem value="stock-desc">Stock High-Low</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                                {(searchQuery || selectedCategory !== 'all') && (
-                                    <Button variant="outline" onClick={clearFilters}>
-                                        Clear Filters
+            <div className="min-h-screen bg-muted/30">
+                <div className="max-w-7xl mx-auto p-3 sm:p-4 lg:p-6 space-y-4">
+                    
+                    {/* Stats Overview - Horizontal Scroll on Mobile */}
+                    <div className="overflow-x-auto -mx-3 px-3 sm:mx-0 sm:px-0 pb-2">
+                        <div className="flex sm:grid sm:grid-cols-2 lg:grid-cols-3 gap-3 min-w-max sm:min-w-0">
+                            <Card className="flex-shrink-0 w-[280px] sm:w-auto bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950 dark:to-blue-900 border-blue-200 dark:border-blue-800 shadow-sm">
+                                <CardContent className="p-4">
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <p className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-1">Total Variants</p>
+                                            <p className="text-2xl sm:text-3xl font-bold text-blue-900 dark:text-blue-100">{allVariants.length}</p>
+                                            <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">Items in stock</p>
+                                        </div>
+                                        <div className="h-12 w-12 rounded-full bg-blue-200 dark:bg-blue-800 flex items-center justify-center">
+                                            <Package className="h-6 w-6 text-blue-600 dark:text-blue-300" />
+                                        </div>
+                                    </div>
+                                </CardContent>
+                            </Card>
+
+                            <Card className="flex-shrink-0 w-[280px] sm:w-auto bg-gradient-to-br from-green-50 to-green-100 dark:from-green-950 dark:to-green-900 border-green-200 dark:border-green-800 shadow-sm">
+                                <CardContent className="p-4">
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <p className="text-xs font-medium text-green-600 dark:text-green-400 mb-1">Products</p>
+                                            <p className="text-2xl sm:text-3xl font-bold text-green-900 dark:text-green-100">{totalProducts}</p>
+                                            <p className="text-xs text-green-600 dark:text-green-400 mt-1">Unique items</p>
+                                        </div>
+                                        <div className="h-12 w-12 rounded-full bg-green-200 dark:bg-green-800 flex items-center justify-center">
+                                            <BarChart3 className="h-6 w-6 text-green-600 dark:text-green-300" />
+                                        </div>
+                                    </div>
+                                </CardContent>
+                            </Card>
+
+                            <Card className="flex-shrink-0 w-[280px] sm:w-auto sm:col-span-2 lg:col-span-1 bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-950 dark:to-orange-900 border-orange-200 dark:border-orange-800 shadow-sm">
+                                <CardContent className="p-4">
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <p className="text-xs font-medium text-orange-600 dark:text-orange-400 mb-1">Low Stock Alert</p>
+                                            <p className="text-2xl sm:text-3xl font-bold text-orange-900 dark:text-orange-100">{lowStockItems}</p>
+                                            <p className="text-xs text-orange-600 dark:text-orange-400 mt-1">Below 10 units</p>
+                                        </div>
+                                        <div className="h-12 w-12 rounded-full bg-orange-200 dark:bg-orange-800 flex items-center justify-center">
+                                            <AlertTriangle className="h-6 w-6 text-orange-600 dark:text-orange-300" />
+                                        </div>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        </div>
+                    </div>
+
+                    {/* Search Bar with Integrated Filters */}
+                    <Card className="shadow-sm">
+                        <CardContent className="p-3 sm:p-4">
+                            <div className="space-y-3">
+                                {/* Search Input with Actions */}
+                                <div className="flex gap-2">
+                                    <div className="relative flex-1">
+                                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                                        <Input
+                                            placeholder="Search products, variants, or barcode..."
+                                            value={searchQuery}
+                                            onChange={(e) => setSearchQuery(e.target.value)}
+                                            className="pl-9 pr-9 h-11 text-base"
+                                        />
+                                        {searchQuery && (
+                                            <button
+                                                onClick={() => setSearchQuery('')}
+                                                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                                            >
+                                                <X className="h-4 w-4" />
+                                            </button>
+                                        )}
+                                    </div>
+                                    <div className="flex-shrink-0">
+                                        <CompactBarcodeScanner 
+                                            onScanSuccessAction={handleBarcodeScanned}
+                                            buttonText=""
+                                            buttonVariant="outline"
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Action Buttons */}
+                                <div className="flex gap-2">
+                                    <Button 
+                                        variant={showFilters ? "default" : "outline"}
+                                        className="flex-1 sm:flex-none h-11 relative"
+                                        onClick={() => setShowFilters(!showFilters)}
+                                    >
+                                        <Filter className="h-4 w-4 mr-2" />
+                                        <span>Filters</span>
+                                        {(selectedCategory !== 'all' || sortBy !== 'name') && (
+                                            <Badge variant="secondary" className="ml-2 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs">
+                                                {(selectedCategory !== 'all' ? 1 : 0) + (sortBy !== 'name' ? 1 : 0)}
+                                            </Badge>
+                                        )}
+                                        <ChevronDown className={`h-4 w-4 ml-2 transition-transform ${showFilters ? 'rotate-180' : ''}`} />
                                     </Button>
+                                    <Button className="flex-1 sm:flex-none h-11">
+                                        <PlusCircle className="h-4 w-4 mr-2" />
+                                        <span>Add Item</span>
+                                    </Button>
+                                </div>
+
+                                {/* Collapsible Filters */}
+                                {showFilters && (
+                                    <div className="pt-3 border-t space-y-3 animate-in slide-in-from-top-2 duration-200">
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                            <div>
+                                                <Label className="text-xs font-medium mb-2 block text-muted-foreground">Category</Label>
+                                                <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                                                    <SelectTrigger className="h-10 w-full">
+                                                        <SelectValue placeholder="All Categories" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="all">All Categories</SelectItem>
+                                                        <SelectItem value="1000">Textiles (1000+)</SelectItem>
+                                                        <SelectItem value="2000">Food Products (2000+)</SelectItem>
+                                                        <SelectItem value="3000">Electronics (3000+)</SelectItem>
+                                                        <SelectItem value="4000">Machinery (4000+)</SelectItem>
+                                                        <SelectItem value="5000">Chemicals (5000+)</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                            <div>
+                                                <Label className="text-xs font-medium mb-2 block text-muted-foreground">Sort By</Label>
+                                                <Select value={`${sortBy}-${sortOrder}`} onValueChange={(value) => {
+                                                    const [field, order] = value.split('-') as ['name' | 'price' | 'stock', 'asc' | 'desc'];
+                                                    setSortBy(field);
+                                                    setSortOrder(order);
+                                                }}>
+                                                    <SelectTrigger className="h-10 w-full">
+                                                        <SelectValue placeholder="Sort by" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="name-asc">Name A-Z</SelectItem>
+                                                        <SelectItem value="name-desc">Name Z-A</SelectItem>
+                                                        <SelectItem value="price-asc">Price Low-High</SelectItem>
+                                                        <SelectItem value="price-desc">Price High-Low</SelectItem>
+                                                        <SelectItem value="stock-asc">Stock Low-High</SelectItem>
+                                                        <SelectItem value="stock-desc">Stock High-Low</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                        </div>
+                                        {(searchQuery || selectedCategory !== 'all' || sortBy !== 'name') && (
+                                            <Button 
+                                                variant="ghost" 
+                                                size="sm" 
+                                                onClick={clearFilters}
+                                                className="w-full h-9 text-muted-foreground hover:text-foreground"
+                                            >
+                                                <X className="h-4 w-4 mr-2" />
+                                                Clear All Filters
+                                            </Button>
+                                        )}
+                                    </div>
                                 )}
                             </div>
-                            <Button className="flex items-center gap-2">
-                                <PlusCircle className="h-4 w-4" />
-                                Add Item
-                            </Button>
-                        </div>
-                    </CardContent>
-                </Card>
+                        </CardContent>
+                    </Card>
 
-                {/* Inventory List */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Product Variants</CardTitle>
-                        <CardDescription>
-                            {isLoading ? "Loading products..." : `${allVariants.length} variants found`}
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        {isLoading ? (
-                            <div className="text-center py-8">
-                                <div className="mx-auto w-16 h-16 bg-muted rounded-full flex items-center justify-center mb-4">
-                                    <Package className="h-8 w-8 text-muted-foreground animate-pulse" />
+                    {/* Results Summary */}
+                    {!isLoading && (
+                        <div className="flex items-center justify-between px-1">
+                            <p className="text-sm text-muted-foreground font-medium">
+                                {allVariants.length} variant{allVariants.length !== 1 ? 's' : ''} found
+                            </p>
+                        </div>
+                    )}
+
+                    {/* Product List */}
+                    {isLoading ? (
+                        <Card className="shadow-sm">
+                            <CardContent className="py-16">
+                                <div className="text-center">
+                                    <div className="mx-auto w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mb-4">
+                                        <Package className="h-8 w-8 text-primary animate-pulse" />
+                                    </div>
+                                    <p className="text-muted-foreground font-medium">Loading inventory...</p>
                                 </div>
-                                <p className="text-muted-foreground">Loading products...</p>
-                            </div>
-                        ) : allVariants.length > 0 ? (
-                            <div className="space-y-2">
-                                {/* Header Row */}
-                                <div className="grid grid-cols-12 gap-4 p-3 bg-muted/50 rounded-lg font-medium text-sm">
-                                    <div className="col-span-4 sm:col-span-4">Product & Variant</div>
-                                    <div className="col-span-2 sm:col-span-2">HSN Code</div>
-                                    <div className="col-span-2 sm:col-span-2">Size</div>
-                                    <div className="col-span-1 sm:col-span-1">Stock</div>
-                                    <div className="col-span-2 sm:col-span-2">Price</div>
-                                    <div className="col-span-1 sm:col-span-1">Actions</div>
-                                </div>
-                                
-                                {/* Data Rows */}
-                                {allVariants.map((variant: ExtendedVariant) => (
-                                    <div key={variant.id} className="grid grid-cols-12 gap-4 p-3 border rounded-lg hover:bg-muted/30 transition-colors items-center">
-                                        <div className="col-span-4 sm:col-span-4 flex flex-col justify-center">
-                                            <p className="font-medium text-sm">{variant.productName || 'Unknown Product'} {variant.name || 'Unknown Variant'}</p>
-                                            <p className="text-xs text-muted-foreground"> Created: {variant.createdAt ? new Date(variant.createdAt).toLocaleDateString() : 'Unknown'}
-                                            </p>
-                                        </div>
-                                        <div className="col-span-2 sm:col-span-2 flex items-center">
-                                            <p className="text-sm font-mono">{variant.HSN || 'N/A'}</p>
-                                        </div>
-                                        <div className="col-span-2 sm:col-span-2 flex items-center">
-                                            <Badge variant="outline" className="text-xs">
-                                                {variant.size || 'N/A'}
-                                            </Badge>
-                                        </div>
-                                        <div className="col-span-1 sm:col-span-1 flex items-center">
-                                            <p className="text-sm font-medium">
-                                                {variant.stock || 0}
-                                                {(variant.stock || 0) < 10 && (
-                                                    <span className="ml-1 text-red-500">
-                                                        <TrendingDown className="h-3 w-3 inline" />
-                                                    </span>
-                                                )}
-                                            </p>
-                                        </div>
-                                        <div className="col-span-2 sm:col-span-2 flex items-center">
-                                            <p className="text-sm font-medium">
-                                                ₹{(variant.price || 0).toLocaleString()}
-                                            </p>
-                                        </div>
-                                        <div className="col-span-1 sm:col-span-1 flex items-center">
-                                            <div className="flex gap-1 flex-wrap">
+                            </CardContent>
+                        </Card>
+                    ) : allVariants.length > 0 ? (
+                        <div className="space-y-3">
+                            {/* Mobile Card View */}
+                            {allVariants.map((variant: ExtendedVariant) => (
+                                <Card key={variant.id} className="shadow-sm hover:shadow-md transition-shadow duration-200">
+                                    <CardContent className="p-4">
+                                        {/* Header */}
+                                        <div className="flex items-start justify-between gap-3 mb-3">
+                                            <div className="flex-1 min-w-0">
+                                                <h3 className="font-semibold text-base truncate mb-0.5">
+                                                    {variant.productName || 'Unknown Product'}
+                                                </h3>
+                                                <p className="text-sm text-muted-foreground truncate">
+                                                    {variant.name || 'Unknown Variant'}
+                                                </p>
+                                            </div>
+                                            <div className="flex gap-1.5 flex-shrink-0">
                                                 <Button 
-                                                    variant="outline" 
+                                                    variant="ghost" 
                                                     size="sm" 
-                                                    className="text-xs px-2 py-1 h-7"
-                                                    onClick={() => handleEdit(variant)}
-                                                >
-                                                    <Edit className="h-3 w-3" />
-                                                </Button>
-                                                <Button 
-                                                    variant="outline" 
-                                                    size="sm" 
-                                                    className="text-xs px-2 py-1 h-7"
+                                                    className="h-9 w-9 p-0 hover:bg-primary/10"
                                                     onClick={() => handleView(variant)}
                                                 >
-                                                    <Eye className="h-3 w-3" />
+                                                    <Eye className="h-4 w-4" />
                                                 </Button>
                                                 <Button 
-                                                    variant="outline" 
+                                                    variant="ghost" 
                                                     size="sm" 
-                                                    className="text-xs px-2 py-1 h-7"
-                                                    onClick={() => handleStockUpdate(variant)}
+                                                    className="h-9 w-9 p-0 hover:bg-primary/10"
+                                                    onClick={() => handleEdit(variant)}
                                                 >
-                                                    <Plus className="h-3 w-3" />
-                                                </Button>
-                                                <Button 
-                                                    variant="outline" 
-                                                    size="sm" 
-                                                    className="text-xs px-2 py-1 h-7 text-red-600 hover:text-red-700"
-                                                    onClick={() => handleDelete(variant)}
-                                                >
-                                                    <Trash2 className="h-3 w-3" />
+                                                    <Edit className="h-4 w-4" />
                                                 </Button>
                                             </div>
                                         </div>
+
+                                        {/* Details Grid */}
+                                        <div className="grid grid-cols-2 gap-3 mb-3 pb-3 border-b">
+                                            <div className="space-y-1">
+                                                <p className="text-xs text-muted-foreground font-medium">HSN Code</p>
+                                                <p className="text-sm font-mono font-semibold">{variant.HSN || 'N/A'}</p>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <p className="text-xs text-muted-foreground font-medium">Size</p>
+                                                <Badge variant="outline" className="text-xs font-semibold">
+                                                    {variant.size || 'N/A'}
+                                                </Badge>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <p className="text-xs text-muted-foreground font-medium">Stock</p>
+                                                <div className="flex items-center gap-2">
+                                                    <p className="text-sm font-bold">
+                                                        {variant.stock || 0}
+                                                    </p>
+                                                    {(variant.stock || 0) < 10 && (
+                                                        <Badge variant="destructive" className="text-[10px] h-5 px-1.5">
+                                                            <TrendingDown className="h-2.5 w-2.5 mr-1" />
+                                                            Low
+                                                        </Badge>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <p className="text-xs text-muted-foreground font-medium">Price</p>
+                                                <p className="text-sm font-bold">
+                                                    ₹{(variant.price || 0).toLocaleString('en-IN')}
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        {/* Action Buttons */}
+                                        <div className="flex gap-2">
+                                            <Button 
+                                                variant="outline" 
+                                                size="sm" 
+                                                className="flex-1 h-10 font-medium"
+                                                onClick={() => handleStockUpdate(variant)}
+                                            >
+                                                <Plus className="h-4 w-4 mr-1.5" />
+                                                Update Stock
+                                            </Button>
+                                            <Button 
+                                                variant="outline" 
+                                                size="sm" 
+                                                className="h-10 px-4 text-destructive hover:bg-destructive hover:text-destructive-foreground font-medium"
+                                                onClick={() => handleDelete(variant)}
+                                            >
+                                                <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                        </div>
+
+                                        {/* Footer */}
+                                        <p className="text-xs text-muted-foreground mt-3 pt-3 border-t">
+                                            Added {variant.createdAt ? new Date(variant.createdAt).toLocaleDateString('en-IN', { 
+                                                day: 'numeric', 
+                                                month: 'short', 
+                                                year: 'numeric' 
+                                            }) : 'Unknown'}
+                                        </p>
+                                    </CardContent>
+                                </Card>
+                            ))}
+                        </div>
+                    ) : (
+                        <Card className="shadow-sm">
+                            <CardContent className="py-16">
+                                <div className="text-center">
+                                    <div className="mx-auto w-16 h-16 bg-muted rounded-full flex items-center justify-center mb-4">
+                                        <Search className="h-8 w-8 text-muted-foreground" />
                                     </div>
-                                ))}
-                            </div>
-                        ) : (
-                            <div className="text-center py-8">
-                                <div className="mx-auto w-16 h-16 bg-muted rounded-full flex items-center justify-center mb-4">
-                                    <Search className="h-8 w-8 text-muted-foreground" />
+                                    <h3 className="font-semibold text-lg mb-1">No variants found</h3>
+                                    <p className="text-muted-foreground text-sm mb-4">Try adjusting your search or filters</p>
+                                    {(searchQuery || selectedCategory !== 'all') && (
+                                        <Button 
+                                            variant="outline" 
+                                            onClick={clearFilters}
+                                            className="mt-2"
+                                        >
+                                            <X className="h-4 w-4 mr-2" />
+                                            Clear Filters
+                                        </Button>
+                                    )}
                                 </div>
-                                <CardTitle className="text-lg mb-2">No variants found</CardTitle>
-                                <p className="text-muted-foreground">Try adjusting your search terms</p>
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
+                            </CardContent>
+                        </Card>
+                    )}
+                </div>
             </div>
 
             {/* Edit Modal */}
             <Dialog open={!!editingVariant} onOpenChange={() => setEditingVariant(null)}>
-                <DialogContent>
+                <DialogContent className="max-w-[95vw] sm:max-w-[425px] max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
-                        <DialogTitle>Edit Variant</DialogTitle>
+                        <DialogTitle className="text-base sm:text-lg">Edit Variant</DialogTitle>
                     </DialogHeader>
                     <div className="space-y-4">
                         <div>
-                            <Label htmlFor="edit-name">Variant Name</Label>
+                            <Label htmlFor="edit-name" className="text-sm">Variant Name</Label>
                             <Input
                                 id="edit-name"
                                 value={editForm.name}
                                 onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
+                                className="h-10 mt-1.5"
                             />
                         </div>
                         <div>
-                            <Label htmlFor="edit-size">Size</Label>
+                            <Label htmlFor="edit-size" className="text-sm">Size</Label>
                             <Input
                                 id="edit-size"
                                 value={editForm.size}
                                 onChange={(e) => setEditForm(prev => ({ ...prev, size: e.target.value }))}
+                                className="h-10 mt-1.5"
                             />
                         </div>
                         <div>
-                            <Label htmlFor="edit-price">Price</Label>
+                            <Label htmlFor="edit-price" className="text-sm">Price</Label>
                             <Input
                                 id="edit-price"
                                 type="number"
                                 value={editForm.price}
                                 onChange={(e) => setEditForm(prev => ({ ...prev, price: Number(e.target.value) }))}
+                                className="h-10 mt-1.5"
                             />
                         </div>
-                        <div className="flex gap-2 justify-end">
-                            <Button variant="outline" onClick={() => setEditingVariant(null)}>
+                        <div className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end pt-2">
+                            <Button variant="outline" onClick={() => setEditingVariant(null)} className="w-full sm:w-auto h-10">
                                 Cancel
                             </Button>
-                            <Button onClick={confirmEdit}>
+                            <Button onClick={confirmEdit} className="w-full sm:w-auto h-10">
                                 Save Changes
                             </Button>
                         </div>
@@ -418,48 +532,48 @@ export default function InventoryPage() {
 
             {/* View Modal */}
             <Dialog open={!!viewingVariant} onOpenChange={() => setViewingVariant(null)}>
-                <DialogContent>
+                <DialogContent className="max-w-[95vw] sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
-                        <DialogTitle>Variant Details</DialogTitle>
+                        <DialogTitle className="text-base sm:text-lg">Variant Details</DialogTitle>
                     </DialogHeader>
                     {viewingVariant && (
                         <div className="space-y-4">
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div>
-                                    <Label>Product Name</Label>
-                                    <p className="text-sm font-medium">{viewingVariant.productName}</p>
+                                    <Label className="text-xs text-muted-foreground">Product Name</Label>
+                                    <p className="text-sm font-medium mt-1">{viewingVariant.productName}</p>
                                 </div>
                                 <div>
-                                    <Label>Variant Name</Label>
-                                    <p className="text-sm font-medium">{viewingVariant.name}</p>
+                                    <Label className="text-xs text-muted-foreground">Variant Name</Label>
+                                    <p className="text-sm font-medium mt-1">{viewingVariant.name}</p>
                                 </div>
                                 <div>
-                                    <Label>Size</Label>
-                                    <p className="text-sm font-medium">{viewingVariant.size}</p>
+                                    <Label className="text-xs text-muted-foreground">Size</Label>
+                                    <p className="text-sm font-medium mt-1">{viewingVariant.size}</p>
                                 </div>
                                 <div>
-                                    <Label>HSN Code</Label>
-                                    <p className="text-sm font-medium">{viewingVariant.HSN}</p>
+                                    <Label className="text-xs text-muted-foreground">HSN Code</Label>
+                                    <p className="text-sm font-medium mt-1">{viewingVariant.HSN}</p>
                                 </div>
                                 <div>
-                                    <Label>Stock</Label>
-                                    <p className="text-sm font-medium">{viewingVariant.stock}</p>
+                                    <Label className="text-xs text-muted-foreground">Stock</Label>
+                                    <p className="text-sm font-medium mt-1">{viewingVariant.stock}</p>
                                 </div>
                                 <div>
-                                    <Label>Price</Label>
-                                    <p className="text-sm font-medium">₹{viewingVariant.price.toLocaleString()}</p>
+                                    <Label className="text-xs text-muted-foreground">Price</Label>
+                                    <p className="text-sm font-medium mt-1">₹{viewingVariant.price.toLocaleString()}</p>
                                 </div>
                                 <div>
-                                    <Label>Created</Label>
-                                    <p className="text-sm font-medium">{new Date(viewingVariant.createdAt).toLocaleDateString()}</p>
+                                    <Label className="text-xs text-muted-foreground">Created</Label>
+                                    <p className="text-sm font-medium mt-1">{new Date(viewingVariant.createdAt).toLocaleDateString()}</p>
                                 </div>
                                 <div>
-                                    <Label>Updated</Label>
-                                    <p className="text-sm font-medium">{new Date(viewingVariant.updatedAt).toLocaleDateString()}</p>
+                                    <Label className="text-xs text-muted-foreground">Updated</Label>
+                                    <p className="text-sm font-medium mt-1">{new Date(viewingVariant.updatedAt).toLocaleDateString()}</p>
                                 </div>
                             </div>
-                            <div className="flex justify-end">
-                                <Button onClick={() => setViewingVariant(null)}>
+                            <div className="flex justify-end pt-2">
+                                <Button onClick={() => setViewingVariant(null)} className="w-full sm:w-auto h-10">
                                     Close
                                 </Button>
                             </div>
@@ -470,9 +584,9 @@ export default function InventoryPage() {
 
             {/* Delete Confirmation Modal */}
             <Dialog open={!!deletingVariant} onOpenChange={() => setDeletingVariant(null)}>
-                <DialogContent>
+                <DialogContent className="max-w-[95vw] sm:max-w-[425px]">
                     <DialogHeader>
-                        <DialogTitle>Delete Variant</DialogTitle>
+                        <DialogTitle className="text-base sm:text-lg">Delete Variant</DialogTitle>
                     </DialogHeader>
                     {deletingVariant && (
                         <div className="space-y-4">
@@ -483,11 +597,11 @@ export default function InventoryPage() {
                             <p className="text-sm text-muted-foreground">
                                 This action cannot be undone.
                             </p>
-                            <div className="flex gap-2 justify-end">
-                                <Button variant="outline" onClick={() => setDeletingVariant(null)}>
+                            <div className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end pt-2">
+                                <Button variant="outline" onClick={() => setDeletingVariant(null)} className="w-full sm:w-auto h-10">
                                     Cancel
                                 </Button>
-                                <Button variant="destructive" onClick={confirmDelete}>
+                                <Button variant="destructive" onClick={confirmDelete} className="w-full sm:w-auto h-10">
                                     Delete
                                 </Button>
                             </div>
@@ -498,24 +612,27 @@ export default function InventoryPage() {
 
             {/* Stock Update Modal */}
             <Dialog open={!!stockUpdateVariant} onOpenChange={() => setStockUpdateVariant(null)}>
-                <DialogContent>
+                <DialogContent className="max-w-[95vw] sm:max-w-[425px] max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
-                        <DialogTitle>Update Stock</DialogTitle>
+                        <DialogTitle className="text-base sm:text-lg">Update Stock</DialogTitle>
                     </DialogHeader>
                     {stockUpdateVariant && (
                         <div className="space-y-4">
-                            <div>
-                                <Label>Product: {stockUpdateVariant.productName}</Label>
-                                <p className="text-sm text-muted-foreground">Variant: {stockUpdateVariant.name}</p>
-                                <p className="text-sm text-muted-foreground">Current Stock: {stockUpdateVariant.stock}</p>
+                            <div className="bg-muted/50 p-3 rounded-lg">
+                                <Label className="text-xs text-muted-foreground">Product</Label>
+                                <p className="text-sm font-medium mt-1">{stockUpdateVariant.productName}</p>
+                                <Label className="text-xs text-muted-foreground mt-2 block">Variant</Label>
+                                <p className="text-sm font-medium mt-1">{stockUpdateVariant.name}</p>
+                                <Label className="text-xs text-muted-foreground mt-2 block">Current Stock</Label>
+                                <p className="text-sm font-semibold mt-1">{stockUpdateVariant.stock}</p>
                             </div>
                             <div>
-                                <Label htmlFor="stock-operation">Operation</Label>
+                                <Label htmlFor="stock-operation" className="text-sm">Operation</Label>
                                 <Select 
                                     value={stockUpdate.operation} 
                                     onValueChange={(value) => setStockUpdate(prev => ({ ...prev, operation: value as 'set' | 'add' | 'subtract' }))}
                                 >
-                                    <SelectTrigger>
+                                    <SelectTrigger className="h-10 mt-1.5">
                                         <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -526,7 +643,7 @@ export default function InventoryPage() {
                                 </Select>
                             </div>
                             <div>
-                                <Label htmlFor="stock-value">
+                                <Label htmlFor="stock-value" className="text-sm">
                                     {stockUpdate.operation === 'set' ? 'New Stock Value' : 
                                      stockUpdate.operation === 'add' ? 'Amount to Add' : 'Amount to Subtract'}
                                 </Label>
@@ -536,6 +653,7 @@ export default function InventoryPage() {
                                     min="0"
                                     value={stockUpdate.newStock}
                                     onChange={(e) => setStockUpdate(prev => ({ ...prev, newStock: Number(e.target.value) }))}
+                                    className="h-10 mt-1.5"
                                 />
                             </div>
                             {stockUpdate.operation !== 'set' && (
@@ -551,11 +669,11 @@ export default function InventoryPage() {
                                     </p>
                                 </div>
                             )}
-                            <div className="flex gap-2 justify-end">
-                                <Button variant="outline" onClick={() => setStockUpdateVariant(null)}>
+                            <div className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end pt-2">
+                                <Button variant="outline" onClick={() => setStockUpdateVariant(null)} className="w-full sm:w-auto h-10">
                                     Cancel
                                 </Button>
-                                <Button onClick={confirmStockUpdate}>
+                                <Button onClick={confirmStockUpdate} className="w-full sm:w-auto h-10">
                                     Update Stock
                                 </Button>
                             </div>

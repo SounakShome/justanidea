@@ -98,9 +98,14 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       data: {
         status: data.status,
         notes: data.notes,
+        remarks: data.remarks,
         // Update bill-level discount and tax information
         discountType: data.billDiscount?.type || 'none',
         discount: data.billDiscount?.value || 0,
+        // Update special discount (applied during review)
+        specialDiscountType: data.specialDiscount?.type || 'none',
+        specialDiscount: data.specialDiscount?.value || 0,
+        // Update tax configuration
         csgt: data.taxConfig?.cgstRate || 0,
         sgst: data.taxConfig?.sgstRate || 0,
         igst: data.taxConfig?.igstRate || 0,

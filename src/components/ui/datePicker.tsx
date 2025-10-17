@@ -32,13 +32,27 @@ function isValidDate(date: Date | undefined): date is Date {
     return !isNaN(date.getTime())
 }
 
-export default function Calendar28({ setPurchase }: { setPurchase?: (date: Date) => void }) {
+export default function Calendar28({ 
+    setPurchase,
+    defaultDate 
+}: { 
+    setPurchase?: (date: Date) => void;
+    defaultDate?: Date;
+}) {
     const [open, setOpen] = React.useState(false)
-    const [date, setDate] = React.useState<Date | undefined>(
-        undefined
-    )
-    const [month, setMonth] = React.useState<Date | undefined>(new Date())
-    const [value, setValue] = React.useState("")
+    const initialDate = defaultDate || undefined;
+    const [date, setDate] = React.useState<Date | undefined>(initialDate)
+    const [month, setMonth] = React.useState<Date | undefined>(initialDate || new Date())
+    const [value, setValue] = React.useState(initialDate ? formatDate(initialDate) : "")
+
+    // Set the default date on mount
+    React.useEffect(() => {
+        if (defaultDate && !date) {
+            setDate(defaultDate);
+            setValue(formatDate(defaultDate));
+            setPurchase?.(defaultDate);
+        }
+    }, [defaultDate, date, setPurchase]);
 
     return (
         <div className="flex flex-col gap-3">

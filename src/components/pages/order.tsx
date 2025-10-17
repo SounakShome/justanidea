@@ -35,6 +35,10 @@ const orderFormSchema = z.object({
     type: z.enum(['percentage', 'amount', 'none']),
     value: z.union([z.number().min(0), z.undefined()]),
   }),
+  specialDiscount: z.object({
+    type: z.enum(['percentage', 'amount', 'none']),
+    value: z.union([z.number().min(0), z.undefined()]),
+  }),
   taxConfig: z.object({
     type: z.enum(['igst', 'cgst_sgst']),
     igstRate: z.union([z.number().min(0), z.undefined()]),
@@ -42,6 +46,7 @@ const orderFormSchema = z.object({
     sgstRate: z.union([z.number().min(0), z.undefined()]),
   }),
   notes: z.string().optional(),
+  remarks: z.string().optional(),
 });
 
 type OrderFormValues = z.infer<typeof orderFormSchema>;
@@ -65,8 +70,10 @@ export default function OrdersPage({session}: {session: Session}) {
     defaultValues: {
       items: [],
       billDiscount: { type: 'amount', value: undefined },
+      specialDiscount: { type: 'none', value: undefined },
       taxConfig: { type: 'cgst_sgst', cgstRate: undefined, sgstRate: undefined },
       notes: '',
+      remarks: '',
     },
   });
 
@@ -128,8 +135,10 @@ export default function OrdersPage({session}: {session: Session}) {
       form.reset({
         items: itemsWithDefaults,
         billDiscount: order.billDiscount || { type: 'amount', value: undefined },
+        specialDiscount: order.specialDiscount || { type: 'none', value: undefined },
         taxConfig: order.taxConfig || { type: 'cgst_sgst', cgstRate: undefined, sgstRate: undefined },
         notes: order.notes || '',
+        remarks: order.remarks || '',
       });
       setActiveTab('items');
     }
@@ -149,8 +158,10 @@ export default function OrdersPage({session}: {session: Session}) {
           ...selectedOrder,
           items: data.items,
           billDiscount: data.billDiscount as { type: 'percentage' | 'amount'; value: number | undefined },
+          specialDiscount: data.specialDiscount as { type: 'percentage' | 'amount' | 'none'; value: number | undefined },
           taxConfig: data.taxConfig as { type: 'igst' | 'cgst_sgst'; igstRate?: number; cgstRate?: number; sgstRate?: number },
           notes: data.notes || '',
+          remarks: data.remarks || '',
           status: 'approved'
         };
         
@@ -172,8 +183,10 @@ export default function OrdersPage({session}: {session: Session}) {
           ...selectedOrder,
           items: data.items,
           billDiscount: data.billDiscount as { type: 'percentage' | 'amount'; value: number | undefined },
+          specialDiscount: data.specialDiscount as { type: 'percentage' | 'amount' | 'none'; value: number | undefined },
           taxConfig: data.taxConfig as { type: 'igst' | 'cgst_sgst'; igstRate?: number; cgstRate?: number; sgstRate?: number },
           notes: data.notes || '',
+          remarks: data.remarks || '',
           status: 'review' // Keep the same status
         };
         
@@ -802,6 +815,84 @@ export default function OrdersPage({session}: {session: Session}) {
                           </div>
                         </div>
 
+                        {/* Special Discount Section */}
+                        <div className="border rounded-lg p-4 space-y-4 bg-blue-50/50">
+                          <div className="flex items-center gap-2">
+                            <h4 className="font-medium">Special Discount</h4>
+                            <Badge variant="secondary" className="text-xs">Applied after bill discount</Badge>
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <FormField
+                              control={form.control}
+                              name="specialDiscount.type"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel className="text-sm text-muted-foreground">Discount Type</FormLabel>
+                                  <FormControl>
+                                    <select
+                                      {...field}
+                                      disabled={session.user.role !== 'ADMIN'}
+                                      className="w-full h-10 px-3 border border-input bg-background rounded-md text-sm mt-1"
+                                    >
+                                      <option value="none">No Discount</option>
+                                      <option value="amount">Amount (₹)</option>
+                                      <option value="percentage">Percentage (%)</option>
+                                    </select>
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                            {formValues.specialDiscount.type !== 'none' && (
+                              <FormField
+                                control={form.control}
+                                name="specialDiscount.value"
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel className="text-sm text-muted-foreground">
+                                      {formValues.specialDiscount.type === 'percentage' ? 'Percentage' : 'Amount (₹)'}
+                                    </FormLabel>
+                                    <FormControl>
+                                      <Input
+                                        type="number"
+                                        min="0"
+                                        disabled={session.user.role !== 'ADMIN'}
+                                        step="0.01"
+                                        {...field}
+                                        value={field.value ?? ''}
+                                        onChange={(e) => field.onChange(parseFloat(e.target.value) || undefined)}
+                                        className="h-10 mt-1"
+                                        placeholder="Enter discount amount"
+                                      />
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                            )}
+                          </div>
+                          
+                          {/* Remarks for Special Discount */}
+                          <FormField
+                            control={form.control}
+                            name="remarks"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel className="text-sm text-muted-foreground">Remarks / Reason for Special Discount</FormLabel>
+                                <FormControl>
+                                  <textarea
+                                    {...field}
+                                    readOnly={session.user.role !== 'ADMIN'}
+                                    className="w-full h-24 p-3 border border-input bg-background rounded-md text-sm mt-1"
+                                    placeholder="Enter reason for special discount or any remarks..."
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+
                         {/* Tax Section */}
                         <div className="border rounded-lg p-4 space-y-4">
                           <h4 className="font-medium">Tax Configuration</h4>
@@ -969,7 +1060,15 @@ export default function OrdersPage({session}: {session: Session}) {
                               ? (subtotal * (formValues.billDiscount.value || 0)) / 100
                               : (formValues.billDiscount.value || 0);
                             
-                            const afterDiscount = subtotal - billDiscountAmount;
+                            const afterBillDiscount = subtotal - billDiscountAmount;
+                            
+                            // Calculate special discount (applied after bill discount)
+                            const specialDiscountAmount = formValues.specialDiscount.type === 'none' ? 0 :
+                              formValues.specialDiscount.type === 'percentage'
+                              ? (afterBillDiscount * (formValues.specialDiscount.value || 0)) / 100
+                              : (formValues.specialDiscount.value || 0);
+                            
+                            const afterAllDiscounts = afterBillDiscount - specialDiscountAmount;
                             
                             // Calculate tax based on configuration
                             let totalTaxAmount = 0;
@@ -978,15 +1077,15 @@ export default function OrdersPage({session}: {session: Session}) {
                             let igstAmount = 0;
                             
                             if (formValues.taxConfig.type === 'igst') {
-                              igstAmount = (afterDiscount * (formValues.taxConfig.igstRate || 0)) / 100;
+                              igstAmount = (afterAllDiscounts * (formValues.taxConfig.igstRate || 0)) / 100;
                               totalTaxAmount = igstAmount;
                             } else {
-                              cgstAmount = (afterDiscount * (formValues.taxConfig.cgstRate || 0)) / 100;
-                              sgstAmount = (afterDiscount * (formValues.taxConfig.sgstRate || 0)) / 100;
+                              cgstAmount = (afterAllDiscounts * (formValues.taxConfig.cgstRate || 0)) / 100;
+                              sgstAmount = (afterAllDiscounts * (formValues.taxConfig.sgstRate || 0)) / 100;
                               totalTaxAmount = cgstAmount + sgstAmount;
                             }
                             
-                            const total = afterDiscount + totalTaxAmount;
+                            const total = afterAllDiscounts + totalTaxAmount;
 
                             return (
                               <div className="space-y-2 text-sm">
@@ -999,9 +1098,21 @@ export default function OrdersPage({session}: {session: Session}) {
                                   <span>-₹{billDiscountAmount.toFixed(2)}</span>
                                 </div>
                                 <div className="flex justify-between">
-                                  <span>After Discount:</span>
-                                  <span>₹{afterDiscount.toFixed(2)}</span>
+                                  <span>After Bill Discount:</span>
+                                  <span>₹{afterBillDiscount.toFixed(2)}</span>
                                 </div>
+                                {formValues.specialDiscount.type !== 'none' && (
+                                  <>
+                                    <div className="flex justify-between text-blue-600">
+                                      <span>Special Discount:</span>
+                                      <span>-₹{specialDiscountAmount.toFixed(2)}</span>
+                                    </div>
+                                    <div className="flex justify-between font-medium">
+                                      <span>After All Discounts:</span>
+                                      <span>₹{afterAllDiscounts.toFixed(2)}</span>
+                                    </div>
+                                  </>
+                                )}
                                 
                                 {/* Tax breakdown */}
                                 {formValues.taxConfig.type === 'igst' ? (
@@ -1036,46 +1147,78 @@ export default function OrdersPage({session}: {session: Session}) {
                     {/* Action Buttons */}
                     {session.user?.role === "ADMIN" && (
                       <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t">
-                        <Button 
-                          type="button"
-                          variant="outline"
-                          className="flex-1"
-                          onClick={form.handleSubmit(handleSaveChanges)}
-                          disabled={isSaving}
-                        >
-                          {isSaving ? (
-                            <>
-                              <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                              Saving...
-                            </>
-                          ) : (
-                            'Save Changes'
-                          )}
-                        </Button>
-                        <Button 
-                          type="button"
-                          className="flex-1"
-                          onClick={form.handleSubmit(handleApproveOrder)}
-                          disabled={isSaving}
-                        >
-                          {isSaving ? (
-                            <>
-                              <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                              Approving...
-                            </>
-                          ) : (
-                            'Save & Approve Order'
-                          )}
-                        </Button>
-                        <Button 
-                          type="button"
-                          variant="outline" 
-                          className="flex-1"
-                          onClick={closeOrderDetails}
-                          disabled={isSaving}
-                        >
-                          Cancel
-                        </Button>
+                        {activeTab === 'items' ? (
+                          // Show Save Changes and Next button on Items tab
+                          <>
+                            <Button 
+                              type="button"
+                              variant="outline"
+                              className="flex-1"
+                              onClick={form.handleSubmit(handleSaveChanges)}
+                              disabled={isSaving}
+                            >
+                              {isSaving ? (
+                                <>
+                                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                                  Saving...
+                                </>
+                              ) : (
+                                'Save Changes'
+                              )}
+                            </Button>
+                            <Button 
+                              type="button"
+                              className="flex-1"
+                              onClick={() => setActiveTab('discounts')}
+                            >
+                              Next: Discounts & Taxes →
+                            </Button>
+                          </>
+                        ) : (
+                          // Show Save and Approve buttons on Discounts tab
+                          <>
+                            <Button 
+                              type="button"
+                              variant="outline"
+                              className="flex-1"
+                              onClick={form.handleSubmit(handleSaveChanges)}
+                              disabled={isSaving}
+                            >
+                              {isSaving ? (
+                                <>
+                                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                                  Saving...
+                                </>
+                              ) : (
+                                'Save Changes'
+                              )}
+                            </Button>
+                            <Button 
+                              type="button"
+                              className="flex-1"
+                              onClick={form.handleSubmit(handleApproveOrder)}
+                              disabled={isSaving}
+                            >
+                              {isSaving ? (
+                                <>
+                                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                                  Approving...
+                                </>
+                              ) : (
+                                'Save & Approve Order'
+                              )}
+                            </Button>
+                            <Button 
+                              type="button"
+                              variant="outline" 
+                              className="flex-1"
+                              onClick={closeOrderDetails}
+                              disabled={isSaving}
+                            >
+                              Cancel
+                            </Button>
+                          </>
+                        )}
                       </div>
                     )}
                   </div>

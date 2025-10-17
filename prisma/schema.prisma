@@ -91,23 +91,26 @@ model Variants {
 }
 
 model Order {
-  id            String        @id @default(cuid())
-  order_date    DateTime      @default(now())
-  customerId    String
-  total_amount  Float
-  status        String        @default("pending")
-  notes         String?
-  subtotal      Float
-  discountType  String        @default("none")
-  discount      Float         @default(0)
-  csgt          Float         @default(0)
-  sgst          Float         @default(0)
-  igst          Float         @default(0)
-  taxableAmount Float         @default(0)
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-  customer      Customer      @relation(fields: [customerId], references: [id])
-  items         order_items[]
+  id                  String        @id @default(cuid())
+  order_date          DateTime      @default(now())
+  customerId          String
+  total_amount        Float
+  status              String        @default("pending")
+  notes               String?
+  subtotal            Float
+  discountType        String        @default("none")
+  discount            Float         @default(0)
+  specialDiscountType String        @default("none")
+  specialDiscount     Float         @default(0)
+  remarks             String?
+  csgt                Float         @default(0)
+  sgst                Float         @default(0)
+  igst                Float         @default(0)
+  taxableAmount       Float         @default(0)
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+  customer            Customer      @relation(fields: [customerId], references: [id])
+  items               order_items[]
 }
 
 model order_items {

@@ -16,6 +16,11 @@ export interface BillDiscount {
   value: number | undefined;
 }
 
+export interface SpecialDiscount {
+  type: 'percentage' | 'amount' | 'none';
+  value: number | undefined;
+}
+
 export interface TaxConfig {
   type: 'igst' | 'cgst_sgst';
   igstRate?: number;
@@ -31,8 +36,10 @@ export interface Order {
   status: 'pending' | 'review' | 'approved';
   items: OrderItem[];
   billDiscount?: BillDiscount;
+  specialDiscount?: SpecialDiscount;
   taxConfig?: TaxConfig;
   notes?: string | null;
+  remarks?: string | null;
 }
 
 export type OrderStatus = 'pending' | 'review' | 'approved';

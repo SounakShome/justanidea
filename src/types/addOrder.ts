@@ -40,6 +40,9 @@ export type FormValues = {
     items: OrderItem[];
     subTotal: number;
     totalAmount: number;
+    billDiscountType?: 'percentage' | 'amount' | 'none';
+    billDiscount?: number;
+    remarks?: string;
 };
 
 export interface AddOrderProps {

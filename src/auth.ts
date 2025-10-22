@@ -6,15 +6,35 @@ import { getUserFromDb } from "@/utils/auth"
 export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [
     Credentials({
+      credentials: {
+        email: { label: "Email", type: "email" },
+        password: { label: "Password", type: "password" }
+      },
       async authorize(credentials) {
-        const user = await getUserFromDb(credentials?.email as string, credentials?.password as string)
+        try {
+          if (!credentials?.email || !credentials?.password) {
+            throw new Error("Email and password are required");
+          }
 
-        if (!user) {
-          console.log("Invalid credentials.");
+          const user = await getUserFromDb(
+            credentials.email as string, 
+            credentials.password as string
+          );
+
+          if (!user) {
+            throw new Error("Invalid email or password");
+          }
+
+          if (!user.verified) {
+            throw new Error("Please verify your email before logging in");
+          }
+
+          return user;
+        } catch (error) {
+          console.error("Authorization error:", error);
+          // Return null to trigger CredentialsSignin error
           return null;
         }
-
-        return user
       },
     }),
   ],
@@ -62,5 +82,21 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   },
   pages: {
     signIn: "/login",
-  }
+    error: "/login", // Redirect errors back to login page
+  },
+  events: {
+    // @ts-ignore
+    async signIn({ user, account, profile }) {
+      console.log("User signed in:", user.email);
+    },
+    // @ts-ignore
+    async signOut({ token }) {
+      console.log("User signed out:", token?.email);
+    },
+  },
+  session: {
+    strategy: "jwt",
+    maxAge: 30 * 24 * 60 * 60, // 30 days
+  },
+  debug: process.env.NODE_ENV === "development",
 })

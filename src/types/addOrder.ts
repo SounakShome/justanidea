@@ -22,6 +22,8 @@ export type Variant = {
     price: number;
     stock: number;
     productId: string;
+    barcode?: string | null;
+    supplierId?: string | null;
 };
 
 export type OrderItem = {

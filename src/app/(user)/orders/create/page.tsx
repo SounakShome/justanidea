@@ -11,16 +11,37 @@ export async function generateMetadata() {
 
 export default async function Page() {
   try {
-    // Directly fetch from database instead of API route for better performance
-    const products = await prisma.products.findMany({
+    // Fetch products with variants
+    const productsRaw = await prisma.products.findMany({
       include: {
         variants: true,
       },
     });
 
-    if (!products || products.length === 0) {
+    if (!productsRaw || productsRaw.length === 0) {
       return <div>No products available.</div>;
     }
+
+    // Flatten variants with sizes into individual variant entries for compatibility
+    const products = productsRaw.map(product => ({
+      ...product,
+      variants: product.variants.flatMap(variant => {
+        // Parse sizes from JSON
+        const sizes = Array.isArray(variant.sizes) ? variant.sizes : [];
+        
+        // Create a variant entry for each size
+        return sizes.map((sizeData: any) => ({
+          id: `${variant.id}-${sizeData.size}`,
+          name: variant.name,
+          size: sizeData.size,
+          price: sizeData.sellingPrice || sizeData.buyingPrice,
+          stock: sizeData.stock,
+          productId: variant.productId,
+          barcode: variant.barcode,
+          supplierId: variant.supplierId,
+        }));
+      })
+    }));
     
     return (
       <div className="px-6">

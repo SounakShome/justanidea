@@ -1,5 +1,13 @@
 import { prisma } from "@/lib/prisma";
 
+// Interface for size data from JSON field
+interface SizeData {
+  size: string;
+  buyingPrice: number;
+  sellingPrice: number;
+  stock: number;
+}
+
 export interface MappedPurchaseItem {
   id: string;
   quantity: number;
@@ -121,26 +129,41 @@ export async function fetchMappedPurchases(): Promise<PurchasesResponse> {
         Supp_State: purchase.supplier.Supp_State,
         division: purchase.supplier.division,
       },
-      items: purchase.items.map((item) => ({
-        id: item.id,
-        quantity: item.quantity,
-        unitPrice: item.unitPrice,
-        discount: item.discount,
-        totalPrice: item.totalPrice,
-        variant: {
-          id: item.variant.id,
-          name: item.variant.name,
-          size: item.variant.size,
-          price: item.variant.price,
-          stock: item.variant.stock,
-          sellingPrice: item.variant.sellingPrice,
-        },
-        product: {
-          id: item.variant.product.id,
-          name: item.variant.product.name,
-          HSN: item.variant.product.HSN,
-        },
-      })),
+      items: purchase.items.map((item) => {
+        // Parse sizes from JSON field
+        const sizes = (Array.isArray(item.variant.sizes) 
+          ? item.variant.sizes 
+          : []) as unknown as SizeData[];
+        
+        // Find the size entry matching this purchase item
+        const sizeEntry: SizeData = sizes.find((s) => s.size === item.size) || {
+          size: item.size,
+          buyingPrice: 0,
+          sellingPrice: 0,
+          stock: 0
+        };
+
+        return {
+          id: item.id,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          discount: item.discount,
+          totalPrice: item.totalPrice,
+          variant: {
+            id: item.variant.id,
+            name: item.variant.name,
+            size: item.size,
+            price: sizeEntry.buyingPrice,
+            stock: sizeEntry.stock,
+            sellingPrice: sizeEntry.sellingPrice,
+          },
+          product: {
+            id: item.variant.product.id,
+            name: item.variant.product.name,
+            HSN: item.variant.product.HSN,
+          },
+        };
+      }),
       itemsSummary: {
         totalItems: purchase.items.length,
         totalQuantity: purchase.items.reduce((sum, item) => sum + item.quantity, 0),
@@ -227,26 +250,41 @@ export async function fetchMappedPurchaseById(purchaseId: string): Promise<Mappe
         Supp_State: purchase.supplier.Supp_State,
         division: purchase.supplier.division,
       },
-      items: purchase.items.map((item) => ({
-        id: item.id,
-        quantity: item.quantity,
-        unitPrice: item.unitPrice,
-        discount: item.discount,
-        totalPrice: item.totalPrice,
-        variant: {
-          id: item.variant.id,
-          name: item.variant.name,
-          size: item.variant.size,
-          price: item.variant.price,
-          stock: item.variant.stock,
-          sellingPrice: item.variant.sellingPrice,
-        },
-        product: {
-          id: item.variant.product.id,
-          name: item.variant.product.name,
-          HSN: item.variant.product.HSN,
-        },
-      })),
+      items: purchase.items.map((item) => {
+        // Parse sizes from JSON field
+        const sizes = (Array.isArray(item.variant.sizes) 
+          ? item.variant.sizes 
+          : []) as unknown as SizeData[];
+        
+        // Find the size entry matching this purchase item
+        const sizeEntry: SizeData = sizes.find((s) => s.size === item.size) || {
+          size: item.size,
+          buyingPrice: 0,
+          sellingPrice: 0,
+          stock: 0
+        };
+
+        return {
+          id: item.id,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          discount: item.discount,
+          totalPrice: item.totalPrice,
+          variant: {
+            id: item.variant.id,
+            name: item.variant.name,
+            size: item.size,
+            price: sizeEntry.buyingPrice,
+            stock: sizeEntry.stock,
+            sellingPrice: sizeEntry.sellingPrice,
+          },
+          product: {
+            id: item.variant.product.id,
+            name: item.variant.product.name,
+            HSN: item.variant.product.HSN,
+          },
+        };
+      }),
       itemsSummary: {
         totalItems: purchase.items.length,
         totalQuantity: purchase.items.reduce((sum, item) => sum + item.quantity, 0),
@@ -349,26 +387,41 @@ export async function fetchFilteredPurchases(filters: {
         Supp_State: purchase.supplier.Supp_State,
         division: purchase.supplier.division,
       },
-      items: purchase.items.map((item) => ({
-        id: item.id,
-        quantity: item.quantity,
-        unitPrice: item.unitPrice,
-        discount: item.discount,
-        totalPrice: item.totalPrice,
-        variant: {
-          id: item.variant.id,
-          name: item.variant.name,
-          size: item.variant.size,
-          price: item.variant.price,
-          stock: item.variant.stock,
-          sellingPrice: item.variant.sellingPrice,
-        },
-        product: {
-          id: item.variant.product.id,
-          name: item.variant.product.name,
-          HSN: item.variant.product.HSN,
-        },
-      })),
+      items: purchase.items.map((item) => {
+        // Parse sizes from JSON field
+        const sizes = (Array.isArray(item.variant.sizes) 
+          ? item.variant.sizes 
+          : []) as unknown as SizeData[];
+        
+        // Find the size entry matching this purchase item
+        const sizeEntry: SizeData = sizes.find((s) => s.size === item.size) || {
+          size: item.size,
+          buyingPrice: 0,
+          sellingPrice: 0,
+          stock: 0
+        };
+
+        return {
+          id: item.id,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          discount: item.discount,
+          totalPrice: item.totalPrice,
+          variant: {
+            id: item.variant.id,
+            name: item.variant.name,
+            size: item.size,
+            price: sizeEntry.buyingPrice,
+            stock: sizeEntry.stock,
+            sellingPrice: sizeEntry.sellingPrice,
+          },
+          product: {
+            id: item.variant.product.id,
+            name: item.variant.product.name,
+            HSN: item.variant.product.HSN,
+          },
+        };
+      }),
       itemsSummary: {
         totalItems: purchase.items.length,
         totalQuantity: purchase.items.reduce((sum, item) => sum + item.quantity, 0),

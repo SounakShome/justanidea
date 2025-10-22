@@ -5,15 +5,16 @@ export async function POST(req: NextRequest) {
     try {
         const variant = await req.json();
         console.log('Received variant data:', variant);
-        // Create a new variant
+        
+        // Create a new variant with sizes as JSON
         const newVariant = await prisma.variants.create({
             data: {
                 name: variant.name,
-                size: variant.size,
-                price: parseFloat(variant.price),
-                stock: parseInt(variant.stock),
                 productId: variant.parentProductId,
-                supplierId: variant.suppId,
+                supplierId: variant.suppId || null,
+                barcode: variant.barcode || null,
+                barcodeType: variant.barcode ? "CODE128" : null,
+                sizes: variant.sizes || [], // Array of {size, buyingPrice, sellingPrice, stock}
             }, 
             include: {
                 product: true, // Include the parent product details

@@ -160,12 +160,6 @@ export default function InventoryPage() {
                 <div className="px-3 sm:px-6">
                     <SiteHeader name="Inventory" />
                 </div>
-                {/* Version indicator for cache busting verification */}
-                {process.env.NODE_ENV === 'development' && (
-                    <div className="absolute top-2 right-2 px-2 py-0.5 bg-green-500 text-white text-[10px] rounded-full font-mono">
-                        v2.0 Mobile
-                    </div>
-                )}
             </div>
 
             <div className="min-h-screen bg-muted/30">

@@ -4,7 +4,7 @@ import type { NextRequest } from 'next/server';
 // Define paths to protect
 const protectedPaths = ['/api'];
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
     const { nextUrl, headers } = request;
 
     // Add no-cache headers for development

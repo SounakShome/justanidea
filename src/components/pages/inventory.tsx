@@ -57,12 +57,8 @@ export default function InventoryPage() {
 
     // Action handlers
     const handleEdit = (variant: ExtendedVariant) => {
-        setEditingVariant(variant);
-        setEditForm({
-            name: variant.name,
-            size: variant.size,
-            price: variant.price
-        });
+        // TODO: Update edit to handle multiple sizes
+        toast.info("Edit functionality will be updated to handle multiple sizes");
     };
 
     const handleView = (variant: ExtendedVariant) => {
@@ -74,11 +70,8 @@ export default function InventoryPage() {
     };
 
     const handleStockUpdate = (variant: ExtendedVariant) => {
-        setStockUpdateVariant(variant);
-        setStockUpdate({
-            newStock: variant.stock,
-            operation: 'set'
-        });
+        // TODO: Update stock to handle multiple sizes
+        toast.info("Stock update will be updated to handle specific sizes");
     };
 
     const confirmEdit = async () => {
@@ -106,22 +99,9 @@ export default function InventoryPage() {
     };
 
     const confirmStockUpdate = async () => {
-        if (!stockUpdateVariant) return;
-        
-        let finalStock = stockUpdate.newStock;
-        if (stockUpdate.operation === 'add') {
-            finalStock = stockUpdateVariant.stock + stockUpdate.newStock;
-        } else if (stockUpdate.operation === 'subtract') {
-            finalStock = Math.max(0, stockUpdateVariant.stock - stockUpdate.newStock);
-        }
-        
-        const success = await updateVariantStock(stockUpdateVariant.id, finalStock);
-        if (success) {
-            setStockUpdateVariant(null);
-            toast("Stock updated successfully");
-        } else {
-            toast("Error updating stock");
-        }
+        // TODO: Update to handle specific size stock updates
+        toast.info("Stock update functionality needs to be updated for multiple sizes");
+        setStockUpdateVariant(null);
     };
 
     const handleBarcodeScanned = (code: string) => {
@@ -151,7 +131,11 @@ export default function InventoryPage() {
     const allProductVariants = products?.flatMap(product => 
         product.variants?.map(variant => ({ ...variant, HSN: product.HSN })) || []
     ) || [];
-    const lowStockItems = allProductVariants.filter(variant => (variant.stock || 0) < 10).length;
+    // Count low stock items across all variant sizes
+    const lowStockItems = allProductVariants.reduce((count, variant) => {
+        const lowSizes = variant.sizes?.filter(size => size.stock < 10).length || 0;
+        return count + lowSizes;
+    }, 0);
 
     return (
         <>
@@ -351,7 +335,11 @@ export default function InventoryPage() {
                     ) : allVariants.length > 0 ? (
                         <div className="space-y-3">
                             {/* Mobile Card View */}
-                            {allVariants.map((variant: ExtendedVariant) => (
+                            {allVariants.map((variant: ExtendedVariant) => {
+                                const totalStock = variant.sizes?.reduce((sum, size) => sum + size.stock, 0) || 0;
+                                const hasLowStock = variant.sizes?.some(size => size.stock < 10) || false;
+                                
+                                return (
                                 <Card key={variant.id} className="shadow-sm hover:shadow-md transition-shadow duration-200">
                                     <CardContent className="p-4">
                                         {/* Header */}
@@ -391,18 +379,10 @@ export default function InventoryPage() {
                                                 <p className="text-sm font-mono font-semibold">{variant.HSN || 'N/A'}</p>
                                             </div>
                                             <div className="space-y-1">
-                                                <p className="text-xs text-muted-foreground font-medium">Size</p>
-                                                <Badge variant="outline" className="text-xs font-semibold">
-                                                    {variant.size || 'N/A'}
-                                                </Badge>
-                                            </div>
-                                            <div className="space-y-1">
-                                                <p className="text-xs text-muted-foreground font-medium">Stock</p>
+                                                <p className="text-xs text-muted-foreground font-medium">Total Stock</p>
                                                 <div className="flex items-center gap-2">
-                                                    <p className="text-sm font-bold">
-                                                        {variant.stock || 0}
-                                                    </p>
-                                                    {(variant.stock || 0) < 10 && (
+                                                    <p className="text-sm font-bold">{totalStock}</p>
+                                                    {hasLowStock && (
                                                         <Badge variant="destructive" className="text-[10px] h-5 px-1.5">
                                                             <TrendingDown className="h-2.5 w-2.5 mr-1" />
                                                             Low
@@ -410,12 +390,32 @@ export default function InventoryPage() {
                                                     )}
                                                 </div>
                                             </div>
-                                            <div className="space-y-1">
-                                                <p className="text-xs text-muted-foreground font-medium">Price</p>
-                                                <p className="text-sm font-bold">
-                                                    ₹{(variant.price || 0).toLocaleString('en-IN')}
-                                                </p>
-                                            </div>
+                                        </div>
+
+                                        {/* Sizes List */}
+                                        <div className="space-y-2 mb-3">
+                                            <p className="text-xs text-muted-foreground font-medium">Sizes ({variant.sizes?.length || 0})</p>
+                                            {variant.sizes && variant.sizes.length > 0 ? (
+                                                <div className="space-y-1.5">
+                                                    {variant.sizes.map((sizeData, idx) => (
+                                                        <div key={idx} className="flex items-center justify-between p-2 bg-muted/30 rounded-md text-xs">
+                                                            <div className="flex items-center gap-3">
+                                                                <Badge variant="outline" className="font-semibold">{sizeData.size}</Badge>
+                                                                <span className="text-muted-foreground">Buy: ₹{sizeData.buyingPrice}</span>
+                                                                <span className="text-muted-foreground">Sell: ₹{sizeData.sellingPrice}</span>
+                                                            </div>
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="font-semibold">Qty: {sizeData.stock}</span>
+                                                                {sizeData.stock < 10 && (
+                                                                    <AlertTriangle className="h-3 w-3 text-orange-600" />
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <p className="text-xs text-muted-foreground italic">No sizes available</p>
+                                            )}
                                         </div>
 
                                         {/* Action Buttons */}
@@ -449,7 +449,8 @@ export default function InventoryPage() {
                                         </p>
                                     </CardContent>
                                 </Card>
-                            ))}
+                                );
+                            })}
                         </div>
                     ) : (
                         <Card className="shadow-sm">
@@ -542,30 +543,54 @@ export default function InventoryPage() {
                                     <p className="text-sm font-medium mt-1">{viewingVariant.name}</p>
                                 </div>
                                 <div>
-                                    <Label className="text-xs text-muted-foreground">Size</Label>
-                                    <p className="text-sm font-medium mt-1">{viewingVariant.size}</p>
-                                </div>
-                                <div>
                                     <Label className="text-xs text-muted-foreground">HSN Code</Label>
                                     <p className="text-sm font-medium mt-1">{viewingVariant.HSN}</p>
                                 </div>
                                 <div>
-                                    <Label className="text-xs text-muted-foreground">Stock</Label>
-                                    <p className="text-sm font-medium mt-1">{viewingVariant.stock}</p>
+                                    <Label className="text-xs text-muted-foreground">Barcode</Label>
+                                    <p className="text-sm font-medium mt-1">{viewingVariant.barcode || 'N/A'}</p>
                                 </div>
-                                <div>
-                                    <Label className="text-xs text-muted-foreground">Price</Label>
-                                    <p className="text-sm font-medium mt-1">₹{viewingVariant.price.toLocaleString()}</p>
-                                </div>
-                                <div>
+                                <div className="col-span-full">
                                     <Label className="text-xs text-muted-foreground">Created</Label>
                                     <p className="text-sm font-medium mt-1">{new Date(viewingVariant.createdAt).toLocaleDateString()}</p>
                                 </div>
-                                <div>
+                                <div className="col-span-full">
                                     <Label className="text-xs text-muted-foreground">Updated</Label>
                                     <p className="text-sm font-medium mt-1">{new Date(viewingVariant.updatedAt).toLocaleDateString()}</p>
                                 </div>
                             </div>
+
+                            {/* Sizes Table */}
+                            <div className="border-t pt-4">
+                                <Label className="text-xs text-muted-foreground mb-2 block">Sizes</Label>
+                                <div className="space-y-2">
+                                    {viewingVariant.sizes && viewingVariant.sizes.length > 0 ? (
+                                        viewingVariant.sizes.map((sizeData, idx) => (
+                                            <div key={idx} className="grid grid-cols-4 gap-2 p-2 bg-muted/30 rounded-md text-xs">
+                                                <div>
+                                                    <span className="text-muted-foreground block">Size</span>
+                                                    <span className="font-semibold">{sizeData.size}</span>
+                                                </div>
+                                                <div>
+                                                    <span className="text-muted-foreground block">Buy</span>
+                                                    <span className="font-semibold">₹{sizeData.buyingPrice}</span>
+                                                </div>
+                                                <div>
+                                                    <span className="text-muted-foreground block">Sell</span>
+                                                    <span className="font-semibold">₹{sizeData.sellingPrice}</span>
+                                                </div>
+                                                <div>
+                                                    <span className="text-muted-foreground block">Stock</span>
+                                                    <span className="font-semibold">{sizeData.stock}</span>
+                                                </div>
+                                            </div>
+                                        ))
+                                    ) : (
+                                        <p className="text-sm text-muted-foreground italic">No sizes available</p>
+                                    )}
+                                </div>
+                            </div>
+
                             <div className="flex justify-end pt-2">
                                 <Button onClick={() => setViewingVariant(null)} className="w-full sm:w-auto h-10">
                                     Close
@@ -604,8 +629,8 @@ export default function InventoryPage() {
                 </DialogContent>
             </Dialog>
 
-            {/* Stock Update Modal */}
-            <Dialog open={!!stockUpdateVariant} onOpenChange={() => setStockUpdateVariant(null)}>
+            {/* Stock Update Modal - TODO: Update for multiple sizes */}
+            {/* <Dialog open={!!stockUpdateVariant} onOpenChange={() => setStockUpdateVariant(null)}>
                 <DialogContent className="max-w-[95vw] sm:max-w-[425px] max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle className="text-base sm:text-lg">Update Stock</DialogTitle>
@@ -674,7 +699,7 @@ export default function InventoryPage() {
                         </div>
                     )}
                 </DialogContent>
-            </Dialog>
+            </Dialog> */}
         </>
     );
 };

@@ -709,8 +709,24 @@ export function ProductForm({ onClose }: { onClose?: () => void }) {
       // Edit existing size
       updated[productIndex].variants[variantIndex].sizes[sizeIndex] = { ...tempSizeData };
     } else {
-      // Add new size
-      updated[productIndex].variants[variantIndex].sizes.push({ ...tempSizeData });
+      // Check if size contains commas for bulk add
+      const sizes = tempSizeData.size.split(',').map(s => s.trim()).filter(s => s.length > 0);
+      
+      if (sizes.length > 1) {
+        // Bulk add multiple sizes
+        sizes.forEach(size => {
+          updated[productIndex].variants[variantIndex].sizes.push({
+            size: size,
+            buyingPrice: tempSizeData.buyingPrice,
+            sellingPrice: tempSizeData.sellingPrice,
+            stock: tempSizeData.stock
+          });
+        });
+        toast.success(`Added ${sizes.length} sizes`);
+      } else {
+        // Add single size
+        updated[productIndex].variants[variantIndex].sizes.push({ ...tempSizeData });
+      }
     }
 
     setProducts(updated);
@@ -1081,6 +1097,9 @@ export function ProductForm({ onClose }: { onClose?: () => void }) {
                 onChange={(e) => setTempSizeData({ ...tempSizeData, size: e.target.value })}
                 className="h-9"
               />
+              <p className="text-xs text-muted-foreground mt-1">
+                💡 Tip: Enter multiple sizes separated by commas (e.g., "S, M, L, XL") to add them all at once
+              </p>
             </FormField>
 
             <div className="grid grid-cols-2 gap-3">
@@ -1155,7 +1174,6 @@ export function VariantForm({ onClose }: { onClose?: () => void }) {
   const [sizeDialogOpen, setSizeDialogOpen] = useState(false);
   const [currentSizeContext, setCurrentSizeContext] = useState<{ variantIndex: number; sizeIndex?: number } | null>(null);
   const [tempSizeData, setTempSizeData] = useState<SizeData>({ size: "", buyingPrice: "", sellingPrice: "", stock: "0" });
-  const [expandedVariants, setExpandedVariants] = useState<{ [key: string]: boolean }>({});
   const [variants, setVariants] = useState<VariantFormData[]>([{
     parentProductId: "",
     name: "",
@@ -1210,12 +1228,6 @@ export function VariantForm({ onClose }: { onClose?: () => void }) {
       suppId: "",
       sizes: []
     }]);
-    // Auto-expand the newly added variant
-    const newIndex = variants.length;
-    setExpandedVariants(prev => ({
-      ...prev,
-      [newIndex]: true
-    }));
   };
 
   const removeVariantInstance = (index: number) => {
@@ -1259,8 +1271,24 @@ export function VariantForm({ onClose }: { onClose?: () => void }) {
       // Edit existing size
       updated[variantIndex].sizes[sizeIndex] = { ...tempSizeData };
     } else {
-      // Add new size
-      updated[variantIndex].sizes.push({ ...tempSizeData });
+      // Check if size contains commas for bulk add
+      const sizes = tempSizeData.size.split(',').map(s => s.trim()).filter(s => s.length > 0);
+      
+      if (sizes.length > 1) {
+        // Bulk add multiple sizes
+        sizes.forEach(size => {
+          updated[variantIndex].sizes.push({
+            size: size,
+            buyingPrice: tempSizeData.buyingPrice,
+            sellingPrice: tempSizeData.sellingPrice,
+            stock: tempSizeData.stock
+          });
+        });
+        toast.success(`Added ${sizes.length} sizes`);
+      } else {
+        // Add single size
+        updated[variantIndex].sizes.push({ ...tempSizeData });
+      }
     }
 
     setVariants(updated);
@@ -1330,33 +1358,21 @@ export function VariantForm({ onClose }: { onClose?: () => void }) {
         {variants.map((variant, index) => (
           <Card key={index} className="relative">
             <CardHeader className="pb-4">
-              <div 
-                className="flex items-center justify-between cursor-pointer hover:bg-accent/50 -mx-6 -my-4 px-6 py-4 rounded-lg transition-colors"
-                onClick={() => {
-                  setExpandedVariants(prev => ({
-                    ...prev,
-                    [index]: !prev[index]
-                  }));
-                }}
-              >
-                <div className="flex items-center gap-2">
-                  <ChevronsUpDown className={`h-4 w-4 flex-shrink-0 transition-transform ${expandedVariants[index] ? 'rotate-180' : ''}`} />
-                  <CardTitle className="text-lg">Variant {index + 1}</CardTitle>
-                  {!expandedVariants[index] && variant.name && (
-                    <span className="text-sm text-muted-foreground truncate ml-2">
-                      {variant.name} ({variant.sizes.length} size{variant.sizes.length !== 1 ? 's' : ''})
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg">
+                  Variant {index + 1}
+                  {variant.name && (
+                    <span className="text-sm text-muted-foreground font-normal ml-2">
+                      - {variant.name}
                     </span>
                   )}
-                </div>
+                </CardTitle>
                 {variants.length > 1 && (
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      removeVariantInstance(index);
-                    }}
+                    onClick={() => removeVariantInstance(index)}
                     className="text-red-600 hover:text-red-700"
                   >
                     Remove
@@ -1365,8 +1381,7 @@ export function VariantForm({ onClose }: { onClose?: () => void }) {
               </div>
             </CardHeader>
             
-            {expandedVariants[index] && (
-              <CardContent className="space-y-4">
+            <CardContent className="space-y-4">
                 {/* Product and Supplier Selection */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <FormField label="Parent Product" error="">
@@ -1476,7 +1491,6 @@ export function VariantForm({ onClose }: { onClose?: () => void }) {
                   )}
                 </div>
               </CardContent>
-            )}
           </Card>
         ))}
 
@@ -1528,6 +1542,9 @@ export function VariantForm({ onClose }: { onClose?: () => void }) {
                 onChange={(e) => setTempSizeData({ ...tempSizeData, size: e.target.value })}
                 className="h-9"
               />
+              <p className="text-xs text-muted-foreground mt-1">
+                💡 Tip: Enter multiple sizes separated by commas (e.g., "S, M, L, XL") to add them all at once
+              </p>
             </FormField>
 
             <div className="grid grid-cols-2 gap-3">

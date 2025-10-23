@@ -15,35 +15,53 @@ import {
     X
 } from "lucide-react";
 import { SiteHeader } from "@/components/site-header";
-
-interface QuickInfo {
-    pLen: number;
-    cLen: number;
-    sLen: number;
-    oLen: number;
-}
+import { useInventoryStore } from "@/store";
 
 export default function Page() {
 
     const [open, setOpen] = useState("");
-    const [quickInfo, setQuickInfo] = useState<QuickInfo>();
+    const { products, refreshProducts, isLoading } = useInventoryStore();
+    const [customersCount, setCustomersCount] = useState(0);
+    const [suppliersCount, setSuppliersCount] = useState(0);
+    const [ordersCount, setOrdersCount] = useState(0);
+    const [countsLoading, setCountsLoading] = useState(true);
 
     useEffect(() => {
-        const fetchQuickInfo = async () => {
+        refreshProducts();
+        
+        // Fetch counts for other entities
+        const fetchCounts = async () => {
+            setCountsLoading(true);
             try {
-                const res = await fetch("/api/quickInfo");
-                if (!res.ok) {
-                    throw new Error("Failed to fetch quick info data");
+                const [customersRes, suppliersRes, ordersRes] = await Promise.all([
+                    fetch("/api/customers"),
+                    fetch("/api/getSuppliers"),
+                    fetch("/api/orders")
+                ]);
+                
+                if (customersRes.ok) {
+                    const customers = await customersRes.json();
+                    setCustomersCount(Array.isArray(customers) ? customers.length : 0);
                 }
-                const data = await res.json();
-                setQuickInfo(data);
+                
+                if (suppliersRes.ok) {
+                    const suppliers = await suppliersRes.json();
+                    setSuppliersCount(Array.isArray(suppliers) ? suppliers.length : 0);
+                }
+                
+                if (ordersRes.ok) {
+                    const orders = await ordersRes.json();
+                    setOrdersCount(Array.isArray(orders) ? orders.length : 0);
+                }
             } catch (error) {
-                console.error("Error fetching quick info:", error);
+                console.error("Error fetching counts:", error);
+            } finally {
+                setCountsLoading(false);
             }
         };
-
-        fetchQuickInfo();
-    }, []);
+        
+        fetchCounts();
+    }, [refreshProducts]);
 
     return (
         <>
@@ -61,19 +79,35 @@ export default function Page() {
                                 <div className="grid grid-cols-2 gap-2">
                                     <div className="p-3 bg-background rounded-md">
                                         <p className="text-muted-foreground text-xs">Products</p>
-                                        <p className="text-2xl font-bold">{quickInfo?.pLen}</p>
+                                        {isLoading ? (
+                                            <div className="h-8 w-16 bg-muted animate-pulse rounded mt-1"></div>
+                                        ) : (
+                                            <p className="text-2xl font-bold">{products?.length || 0}</p>
+                                        )}
                                     </div>
                                     <div className="p-3 bg-background rounded-md">
                                         <p className="text-muted-foreground text-xs">Customers</p>
-                                        <p className="text-2xl font-bold">{quickInfo?.cLen}</p>
+                                        {countsLoading ? (
+                                            <div className="h-8 w-16 bg-muted animate-pulse rounded mt-1"></div>
+                                        ) : (
+                                            <p className="text-2xl font-bold">{customersCount}</p>
+                                        )}
                                     </div>
                                     <div className="p-3 bg-background rounded-md">
                                         <p className="text-muted-foreground text-xs">Suppliers</p>
-                                        <p className="text-2xl font-bold">{quickInfo?.sLen}</p>
+                                        {countsLoading ? (
+                                            <div className="h-8 w-16 bg-muted animate-pulse rounded mt-1"></div>
+                                        ) : (
+                                            <p className="text-2xl font-bold">{suppliersCount}</p>
+                                        )}
                                     </div>
                                     <div className="p-3 bg-background rounded-md">
                                         <p className="text-muted-foreground text-xs">Orders</p>
-                                        <p className="text-2xl font-bold">{quickInfo?.oLen}</p>
+                                        {countsLoading ? (
+                                            <div className="h-8 w-16 bg-muted animate-pulse rounded mt-1"></div>
+                                        ) : (
+                                            <p className="text-2xl font-bold">{ordersCount}</p>
+                                        )}
                                     </div>
                                 </div>
                             </div>

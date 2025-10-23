@@ -198,14 +198,16 @@ export const useInventoryStore = create<InventoryState>((set, get) => ({
           bValue = b.name.toLowerCase()
           break
         case 'price':
-          // Get minimum price from variants
-          aValue = Math.min(...(a.variants?.map(v => v.price) || [0]))
-          bValue = Math.min(...(b.variants?.map(v => v.price) || [0]))
+          // Get minimum price from all variant sizes
+          const aPrices = a.variants?.flatMap(v => v.sizes?.map(s => s.buyingPrice) || []) || [0]
+          const bPrices = b.variants?.flatMap(v => v.sizes?.map(s => s.buyingPrice) || []) || [0]
+          aValue = Math.min(...aPrices)
+          bValue = Math.min(...bPrices)
           break
         case 'stock':
-          // Get total stock from variants
-          aValue = a.variants?.reduce((sum, v) => sum + v.stock, 0) || 0
-          bValue = b.variants?.reduce((sum, v) => sum + v.stock, 0) || 0
+          // Get total stock from all variant sizes
+          aValue = a.variants?.reduce((sum, v) => sum + (v.sizes?.reduce((s, sz) => s + sz.stock, 0) || 0), 0) || 0
+          bValue = b.variants?.reduce((sum, v) => sum + (v.sizes?.reduce((s, sz) => s + sz.stock, 0) || 0), 0) || 0
           break
         default:
           return 0

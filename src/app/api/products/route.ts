@@ -6,6 +6,8 @@ export async function GET() {
       variants: true,
     },
   });
+
+  // Return products with variants as-is, sizes will be in the JSON field
   return Response.json(products);
 }
 

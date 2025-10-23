@@ -101,7 +101,7 @@ const Pricing = () => {
             </span>
             <button
               onClick={() => setBillingCycle(billingCycle === 'monthly' ? 'yearly' : 'monthly')}
-              className={`relative inline-flex h-6 w-12 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 ${
+              className={`relative inline-flex h-6 w-12 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 ${
                 billingCycle === 'yearly' ? 'bg-indigo-600' : 'bg-gray-300 dark:bg-gray-600'
               }`}
               role="switch"
@@ -172,9 +172,9 @@ const Pricing = () => {
                     {plan.features.map((feature, idx) => (
                       <div key={idx} className="flex items-start">
                         {feature.included ? (
-                          <Check className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
+                          <Check className="h-5 w-5 text-green-500 mt-0.5 shrink-0" />
                         ) : (
-                          <X className="h-5 w-5 text-gray-400 mt-0.5 flex-shrink-0" />
+                          <X className="h-5 w-5 text-gray-400 mt-0.5 shrink-0" />
                         )}
                         <span 
                           className={`ml-3 ${

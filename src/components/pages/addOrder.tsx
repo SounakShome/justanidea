@@ -591,7 +591,7 @@ export default function AddOrder({ products }: AddOrderProps) {
                                                 <div>
                                                     <label className="block text-sm font-medium mb-1">Notes</label>
                                                     <textarea
-                                                        className="w-full border rounded px-3 py-2 min-h-[80px] text-sm"
+                                                        className="w-full border rounded px-3 py-2 min-h-20 text-sm"
                                                         placeholder="Any special instructions or notes for this order..."
                                                         {...register("notes")}
                                                     />
@@ -608,7 +608,7 @@ export default function AddOrder({ products }: AddOrderProps) {
                                                 <div>
                                                     <label className="block text-sm font-medium mb-1">Remarks</label>
                                                     <textarea
-                                                        className="w-full border rounded px-3 py-2 min-h-[80px] text-sm"
+                                                        className="w-full border rounded px-3 py-2 min-h-20 text-sm"
                                                         placeholder="Any additional remarks or comments..."
                                                         {...register("remarks")}
                                                     />

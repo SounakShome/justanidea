@@ -296,11 +296,11 @@ export default function OrdersPage({session}: {session: Session}) {
             </div>
             <CardDescription className="text-xs space-y-1 mb-3">
               <div className="flex items-center gap-1">
-                <Hash className="h-3 w-3 flex-shrink-0" />
+                <Hash className="h-3 w-3 shrink-0" />
                 <span>Order {order.id}</span>
               </div>
               <div className="flex items-center gap-1">
-                <Calendar className="h-3 w-3 flex-shrink-0" />
+                <Calendar className="h-3 w-3 shrink-0" />
                 <span>{order.date}</span>
               </div>
               <div className="font-medium">
@@ -315,11 +315,11 @@ export default function OrdersPage({session}: {session: Session}) {
               <CardTitle className="text-lg truncate">{order.customerName}</CardTitle>
               <CardDescription className="flex items-center gap-4 mt-1 text-sm">
                 <span className="flex items-center gap-1">
-                  <Hash className="h-4 w-4 flex-shrink-0" />
+                  <Hash className="h-4 w-4 shrink-0" />
                   <span>Order {order.id}</span>
                 </span>
                 <span className="flex items-center gap-1">
-                  <Calendar className="h-4 w-4 flex-shrink-0" />
+                  <Calendar className="h-4 w-4 shrink-0" />
                   <span>{order.date}</span>
                 </span>
                 <span className="font-medium">
@@ -480,7 +480,7 @@ export default function OrdersPage({session}: {session: Session}) {
           className="fixed inset-0 z-50 bg-white/50 backdrop-blur-sm flex items-center justify-center p-4"
           onClick={closeOrderDetails}
         >
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-5xl max-h-[100vh] overflow-hidden"
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-5xl max-h-screen overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}
@@ -504,7 +504,7 @@ export default function OrdersPage({session}: {session: Session}) {
                 variant="ghost"
                 size="sm"
                 onClick={closeOrderDetails}
-                className="flex-shrink-0 ml-2"
+                className="shrink-0 ml-2"
               >
                 <X className="h-4 w-4" />
               </Button>
@@ -1259,7 +1259,7 @@ export default function OrdersPage({session}: {session: Session}) {
                               </div>
                             </div>
                             {selectedOrder.status === 'pending' && (
-                              <div className="flex items-center gap-2 flex-shrink-0">
+                              <div className="flex items-center gap-2 shrink-0">
                                 <span className="text-sm text-muted-foreground whitespace-nowrap">Allocating:</span>
                                 <Input
                                   type="number"

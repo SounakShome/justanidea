@@ -892,7 +892,7 @@ export function ProductForm({ onClose }: { onClose?: () => void }) {
                                 onClick={() => toggleVariantExpanded(index, vIndex)}
                               >
                                 <div className="flex items-center gap-2 flex-1 min-w-0">
-                                  <ChevronsUpDown className={`h-4 w-4 flex-shrink-0 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                                  <ChevronsUpDown className={`h-4 w-4 shrink-0 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
                                   <div className="flex flex-col min-w-0">
                                     <span className="text-sm font-medium truncate">
                                       Variant {vIndex + 1}
@@ -912,7 +912,7 @@ export function ProductForm({ onClose }: { onClose?: () => void }) {
                                     e.stopPropagation();
                                     removeVariantFromProduct(index, vIndex);
                                   }}
-                                  className="h-7 text-xs text-red-600 hover:text-red-700 hover:bg-red-50 flex-shrink-0"
+                                  className="h-7 text-xs text-red-600 hover:text-red-700 hover:bg-red-50 shrink-0"
                                 >
                                   Remove
                                 </Button>

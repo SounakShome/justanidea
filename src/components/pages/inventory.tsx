@@ -140,7 +140,7 @@ export default function InventoryPage() {
     return (
         <>
             {/* Sticky Header */}
-            <div className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">
+            <div className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60 border-b">
                 <div className="px-3 sm:px-6">
                     <SiteHeader name="Inventory" />
                 </div>
@@ -152,7 +152,7 @@ export default function InventoryPage() {
                     {/* Stats Overview - Horizontal Scroll on Mobile */}
                     <div className="overflow-x-auto -mx-3 px-3 sm:mx-0 sm:px-0 pb-2">
                         <div className="flex sm:grid sm:grid-cols-2 lg:grid-cols-3 gap-3 min-w-max sm:min-w-0">
-                            <Card className="flex-shrink-0 w-[280px] sm:w-auto bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950 dark:to-blue-900 border-blue-200 dark:border-blue-800 shadow-sm">
+                            <Card className="shrink-0 w-[280px] sm:w-auto bg-linear-to-br from-blue-50 to-blue-100 dark:from-blue-950 dark:to-blue-900 border-blue-200 dark:border-blue-800 shadow-sm">
                                 <CardContent className="p-4">
                                     <div className="flex items-center justify-between">
                                         <div>
@@ -167,7 +167,7 @@ export default function InventoryPage() {
                                 </CardContent>
                             </Card>
 
-                            <Card className="flex-shrink-0 w-[280px] sm:w-auto bg-gradient-to-br from-green-50 to-green-100 dark:from-green-950 dark:to-green-900 border-green-200 dark:border-green-800 shadow-sm">
+                            <Card className="shrink-0 w-[280px] sm:w-auto bg-linear-to-br from-green-50 to-green-100 dark:from-green-950 dark:to-green-900 border-green-200 dark:border-green-800 shadow-sm">
                                 <CardContent className="p-4">
                                     <div className="flex items-center justify-between">
                                         <div>
@@ -182,7 +182,7 @@ export default function InventoryPage() {
                                 </CardContent>
                             </Card>
 
-                            <Card className="flex-shrink-0 w-[280px] sm:w-auto sm:col-span-2 lg:col-span-1 bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-950 dark:to-orange-900 border-orange-200 dark:border-orange-800 shadow-sm">
+                            <Card className="shrink-0 w-[280px] sm:w-auto sm:col-span-2 lg:col-span-1 bg-linear-to-br from-orange-50 to-orange-100 dark:from-orange-950 dark:to-orange-900 border-orange-200 dark:border-orange-800 shadow-sm">
                                 <CardContent className="p-4">
                                     <div className="flex items-center justify-between">
                                         <div>
@@ -222,7 +222,7 @@ export default function InventoryPage() {
                                             </button>
                                         )}
                                     </div>
-                                    <div className="flex-shrink-0">
+                                    <div className="shrink-0">
                                         <CompactBarcodeScanner 
                                             onScanSuccessAction={handleBarcodeScanned}
                                             buttonText=""
@@ -352,7 +352,7 @@ export default function InventoryPage() {
                                                     {variant.name || 'Unknown Variant'}
                                                 </p>
                                             </div>
-                                            <div className="flex gap-1.5 flex-shrink-0">
+                                            <div className="flex gap-1.5 shrink-0">
                                                 <Button 
                                                     variant="ghost" 
                                                     size="sm" 

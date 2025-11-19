@@ -37,6 +37,7 @@ yarn-error.log*
 .vercel
 
 migrate-database.js
+migrate-data.js
 
 # typescript
 *.tsbuildinfo

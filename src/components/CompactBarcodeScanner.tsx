@@ -101,41 +101,36 @@ export const CompactBarcodeScanner: React.FC<CompactBarcodeScannerProps> = ({
     processingRef.current = true;
     lastScannedRef.current = cleanedCode;
     
-    // Clear any existing timeout
-    if (scanTimeoutRef.current) {
-      clearTimeout(scanTimeoutRef.current);
-    }
-    
     setBarcodeResult(cleanedCode);
     
     try {
-      // Call the success callback
-      await onScanSuccessAction(cleanedCode);
-      
-      // Auto-close after successful scan
-      scanTimeoutRef.current = setTimeout(async () => {
-        const stopScanning = async () => {
-          if (html5QrCodeRef.current) {
-            try {
-              const state = html5QrCodeRef.current.getState();
-              if (state === 2) {
-                await html5QrCodeRef.current.stop();
-              }
-              await html5QrCodeRef.current.clear();
-            } catch (err) {
-              // Silently handle cleanup errors
-            } finally {
-              html5QrCodeRef.current = null;
-            }
+      // Stop scanning immediately
+      if (html5QrCodeRef.current) {
+        try {
+          const state = html5QrCodeRef.current.getState();
+          if (state === 2) {
+            await html5QrCodeRef.current.stop();
           }
-        };
-        
-        await stopScanning();
+          await html5QrCodeRef.current.clear();
+        } catch (err) {
+          // Silently handle cleanup errors
+        } finally {
+          html5QrCodeRef.current = null;
+        }
+      }
+      
+      setIsScanning(false);
+      
+      // Call the success callback
+      onScanSuccessAction(cleanedCode);
+      
+      // Close after showing success message briefly
+      setTimeout(() => {
         setIsOpen(false);
         setBarcodeResult(null);
         lastScannedRef.current = '';
         processingRef.current = false;
-      }, 1500);
+      }, 800);
     } catch (err) {
       console.error('Error processing barcode:', err);
       setError('Error processing barcode. Please try again.');
@@ -210,9 +205,6 @@ export const CompactBarcodeScanner: React.FC<CompactBarcodeScannerProps> = ({
     }
 
     return () => {
-      if (scanTimeoutRef.current) {
-        clearTimeout(scanTimeoutRef.current);
-      }
       stopScanning();
     };
   }, [isScanning, selectedCamera, handleSuccessfulScan, onErrorAction]);
@@ -234,7 +226,7 @@ export const CompactBarcodeScanner: React.FC<CompactBarcodeScannerProps> = ({
         if (state === 2) { // Html5QrcodeScannerState.SCANNING
           await html5QrCodeRef.current.stop();
         }
-        await html5QrCodeRef.current.clear();
+        html5QrCodeRef.current.clear();
       } catch (err) {
         // Silently handle cleanup errors
       } finally {

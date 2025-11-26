@@ -7,8 +7,20 @@ export async function GET() {
     },
   });
 
-  // Return products with variants as-is, sizes will be in the JSON field
-  return Response.json(products);
+  // Parse the sizes JSON field for each variant
+  const productsWithParsedSizes = products.map(product => ({
+    ...product,
+    variants: product.variants.map(variant => ({
+      ...variant,
+      sizes: typeof variant.sizes === 'string' 
+        ? JSON.parse(variant.sizes) 
+        : Array.isArray(variant.sizes) 
+          ? variant.sizes 
+          : []
+    }))
+  }));
+
+  return Response.json(productsWithParsedSizes);
 }
 
 export async function POST(req: Request) {

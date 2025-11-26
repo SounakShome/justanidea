@@ -167,7 +167,8 @@ export const useInventoryStore = create<InventoryState>((set, get) => ({
       filtered = filtered.filter(product =>
         product.name.toLowerCase().includes(query) ||
         product.variants?.some(variant => 
-          variant.name.toLowerCase().includes(query)
+          variant.name.toLowerCase().includes(query) ||
+          variant.barcode?.toLowerCase().includes(query)
         )
       )
     }
@@ -199,15 +200,27 @@ export const useInventoryStore = create<InventoryState>((set, get) => ({
           break
         case 'price':
           // Get minimum price from all variant sizes
-          const aPrices = a.variants?.flatMap(v => v.sizes?.map(s => s.buyingPrice) || []) || [0]
-          const bPrices = b.variants?.flatMap(v => v.sizes?.map(s => s.buyingPrice) || []) || [0]
+          const aPrices = a.variants?.flatMap(v => {
+            const sizes = Array.isArray(v.sizes) ? v.sizes : [];
+            return sizes.map(s => s.buyingPrice) || [];
+          }) || [0];
+          const bPrices = b.variants?.flatMap(v => {
+            const sizes = Array.isArray(v.sizes) ? v.sizes : [];
+            return sizes.map(s => s.buyingPrice) || [];
+          }) || [0];
           aValue = Math.min(...aPrices)
           bValue = Math.min(...bPrices)
           break
         case 'stock':
           // Get total stock from all variant sizes
-          aValue = a.variants?.reduce((sum, v) => sum + (v.sizes?.reduce((s, sz) => s + sz.stock, 0) || 0), 0) || 0
-          bValue = b.variants?.reduce((sum, v) => sum + (v.sizes?.reduce((s, sz) => s + sz.stock, 0) || 0), 0) || 0
+          aValue = a.variants?.reduce((sum, v) => {
+            const sizes = Array.isArray(v.sizes) ? v.sizes : [];
+            return sum + sizes.reduce((s, sz) => s + sz.stock, 0);
+          }, 0) || 0;
+          bValue = b.variants?.reduce((sum, v) => {
+            const sizes = Array.isArray(v.sizes) ? v.sizes : [];
+            return sum + sizes.reduce((s, sz) => s + sz.stock, 0);
+          }, 0) || 0;
           break
         default:
           return 0

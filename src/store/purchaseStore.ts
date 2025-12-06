@@ -7,6 +7,7 @@ interface PurchaseState {
   variants: Variant[]
   selectedSupplier: Supplier | null
   purchases: CompletedPurchase[]
+  filteredPurchases: CompletedPurchase[]
   
   // Form state
   purchaseForm: PurchaseFormValues
@@ -19,9 +20,12 @@ interface PurchaseState {
   
   // Search state
   variantSearchQuery: string
+  purchaseSearchQuery: string
   
   // Actions
   setVariantSearchQuery: (query: string) => void
+  setPurchaseSearchQuery: (query: string) => void
+  filterPurchases: () => void
   
   // Form actions
   updateFormField: <K extends keyof PurchaseFormValues>(field: K, value: PurchaseFormValues[K]) => void
@@ -31,6 +35,7 @@ interface PurchaseState {
   addVariantToItems: (variant: Variant, selectedSize: string) => void
   updateItemQuantity: (variantId: string, size: string, quantity: number) => void
   updateItemDiscount: (variantId: string, size: string, discount: number) => void
+  updateVariantDiscount: (variantId: string, discount: number) => void
   removeItem: (variantId: string, size: string) => void
   
   // Calculation functions
@@ -46,6 +51,8 @@ interface PurchaseState {
   fetchVariants: (supplierId: string, query?: string) => Promise<void>
   fetchPurchases: () => Promise<void>
   savePurchase: () => Promise<{ success: boolean; id: string } | null>
+  updatePurchaseStatus: (purchaseId: string, status: string) => Promise<void>
+  deletePurchase: (purchaseId: string) => Promise<void>
 }
 
 const initialFormState: PurchaseFormValues = {
@@ -57,6 +64,7 @@ const initialFormState: PurchaseFormValues = {
   items: [],
   subtotal: 0,
   discount: 0,
+  discountType: "percentage",
   taxableAmount: 0,
   tax: "igst",
   igst: 0,
@@ -71,15 +79,37 @@ export const usePurchaseStore = create<PurchaseState>((set, get) => ({
   variants: [],
   selectedSupplier: null,
   purchases: [],
+  filteredPurchases: [],
   purchaseForm: initialFormState,
   isLoadingSuppliers: false,
   isLoadingVariants: false,
   isLoadingPurchases: false,
   isSaving: false,
   variantSearchQuery: "",
+  purchaseSearchQuery: "",
 
   // Search
   setVariantSearchQuery: (query: string) => set({ variantSearchQuery: query }),
+  setPurchaseSearchQuery: (query: string) => {
+    set({ purchaseSearchQuery: query })
+    get().filterPurchases()
+  },
+
+  // Filter purchases helper
+  filterPurchases: () => {
+    const { purchases, purchaseSearchQuery } = get()
+    if (!purchaseSearchQuery.trim()) {
+      set({ filteredPurchases: purchases })
+      return
+    }
+    
+    const query = purchaseSearchQuery.toLowerCase()
+    const filtered = purchases.filter(purchase =>
+      purchase.supplier?.name?.toLowerCase().includes(query) ||
+      purchase.invoiceNo?.toLowerCase().includes(query)
+    )
+    set({ filteredPurchases: filtered })
+  },
 
   // Form actions
   updateFormField: (field, value) => {
@@ -94,6 +124,11 @@ export const usePurchaseStore = create<PurchaseState>((set, get) => ({
     if (field === 'supplierId') {
       const supplier = get().suppliers.find(s => s.id === value) || null
       set({ selectedSupplier: supplier })
+    }
+    
+    // Recalculate amounts when discount or discount type changes
+    if (field === 'discount' || field === 'discountType' || field === 'igst' || field === 'cgst' || field === 'sgst') {
+      get().updateCalculations()
     }
   },
 
@@ -201,6 +236,28 @@ export const usePurchaseStore = create<PurchaseState>((set, get) => ({
     get().updateCalculations()
   },
 
+  updateVariantDiscount: (variantId: string, discount: number) => {
+    const { purchaseForm } = get()
+    const updatedItems = purchaseForm.items.map(item =>
+      item.variantId === variantId
+        ? {
+            ...item,
+            discount,
+            totalPrice: item.quantity * item.unitPrice * (1 - (discount || 0) / 100)
+          }
+        : item
+    )
+    
+    set((state) => ({
+      purchaseForm: {
+        ...state.purchaseForm,
+        items: updatedItems,
+      },
+    }))
+    
+    get().updateCalculations()
+  },
+
   removeItem: (variantId: string, size: string) => {
     const { purchaseForm } = get()
     const updatedItems = purchaseForm.items.filter(
@@ -225,8 +282,12 @@ export const usePurchaseStore = create<PurchaseState>((set, get) => ({
 
   calculateTaxableAmount: () => {
     const subtotal = get().calculateSubtotal()
-    const { discount } = get().purchaseForm
-    return subtotal - (discount || 0)
+    const { discount, discountType } = get().purchaseForm
+    if (discountType === 'percentage') {
+      return subtotal - (subtotal * (discount || 0) / 100)
+    } else {
+      return subtotal - (discount || 0)
+    }
   },
 
   calculateTaxAmount: () => {
@@ -307,19 +368,89 @@ export const usePurchaseStore = create<PurchaseState>((set, get) => ({
             : []
       }))
       
-      // Filter by query if provided
-      let filteredVariants = parsedVariants
-      if (query) {
-        const lowerQuery = query.toLowerCase()
-        filteredVariants = parsedVariants.filter(variant =>
-          variant.name?.toLowerCase().includes(lowerQuery) ||
-          variant.product?.name?.toLowerCase().includes(lowerQuery) ||
-          variant.barcode?.toLowerCase().includes(lowerQuery) ||
-          variant.sizes?.some((s: any) => s.size?.toLowerCase().includes(lowerQuery))
-        )
+      // Filter and rank by query if provided
+      let resultVariants = parsedVariants
+      if (query && query.trim()) {
+        // Remove special characters from query
+        const lowerQuery = query.toLowerCase().trim().replace(/[^a-z0-9\s]/g, '')
+        
+        // Calculate match score for each variant using inventory-style scoring
+        const scoredVariants = parsedVariants.map(variant => {
+          let score = 0
+          
+          // Remove special characters from all search fields
+          const variantName = (variant.name?.toLowerCase() || '').replace(/[^a-z0-9\s]/g, '')
+          const productName = (variant.product?.name?.toLowerCase() || '').replace(/[^a-z0-9\s]/g, '')
+          const barcode = (variant.barcode?.toLowerCase() || '').replace(/[^a-z0-9\s]/g, '')
+          const combinedName = `${productName} ${variantName}`.trim()
+          
+          // Priority 1: Barcode exact match (highest priority)
+          if (barcode && barcode === lowerQuery) {
+            score = 100
+          }
+          // Priority 2: Barcode partial match
+          else if (barcode && barcode.includes(lowerQuery)) {
+            score = 90
+          }
+          // Priority 3: Multi-word query support
+          else {
+            // Split query into words for multi-word search
+            const queryWords = lowerQuery.split(/\s+/).filter(word => word.length > 0)
+            
+            // Check if all query words are present in combined name
+            const allWordsPresent = queryWords.every(word => 
+              combinedName.includes(word)
+            )
+            
+            if (allWordsPresent) {
+              let matchQuality = 0
+              
+              // Exact match with combined name
+              if (combinedName === lowerQuery) {
+                matchQuality = 100
+              }
+              // Exact match with variant name
+              else if (variantName === lowerQuery) {
+                matchQuality = 90
+              }
+              // Exact match with product name
+              else if (productName === lowerQuery) {
+                matchQuality = 85
+              }
+              // Combined name starts with query
+              else if (combinedName.startsWith(lowerQuery)) {
+                matchQuality = 80
+              }
+              // Variant name starts with query
+              else if (variantName.startsWith(lowerQuery)) {
+                matchQuality = 75
+              }
+              // Product name starts with query
+              else if (productName.startsWith(lowerQuery)) {
+                matchQuality = 70
+              }
+              // All words present, calculate score based on word count
+              else {
+                // More words matched = higher base score
+                const wordMatchBonus = Math.min(queryWords.length * 10, 40)
+                matchQuality = 50 + wordMatchBonus
+              }
+              
+              score = matchQuality
+            }
+          }
+          
+          return { variant, score }
+        })
+        
+        // Filter out non-matches and sort by score
+        resultVariants = scoredVariants
+          .filter(item => item.score > 0)
+          .sort((a, b) => b.score - a.score)
+          .map(item => item.variant)
       }
       
-      set({ variants: filteredVariants })
+      set({ variants: resultVariants })
     } catch (error) {
       console.error('Error fetching variants:', error)
       throw error
@@ -335,7 +466,7 @@ export const usePurchaseStore = create<PurchaseState>((set, get) => ({
       if (!response.ok) throw new Error('Failed to fetch purchases')
       
       const data: CompletedPurchase[] = await response.json()
-      set({ purchases: data })
+      set({ purchases: data, filteredPurchases: data })
     } catch (error) {
       console.error('Error fetching purchases:', error)
       throw error
@@ -391,6 +522,40 @@ export const usePurchaseStore = create<PurchaseState>((set, get) => ({
       throw error
     } finally {
       set({ isSaving: false })
+    }
+  },
+
+  updatePurchaseStatus: async (purchaseId: string, status: string) => {
+    try {
+      const response = await fetch(`/api/purchases/${purchaseId}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status }),
+      })
+      
+      if (!response.ok) throw new Error('Failed to update purchase status')
+      
+      // Refresh purchases after update
+      await get().fetchPurchases()
+    } catch (error) {
+      console.error('Error updating purchase status:', error)
+      throw error
+    }
+  },
+
+  deletePurchase: async (purchaseId: string) => {
+    try {
+      const response = await fetch(`/api/purchases/${purchaseId}`, {
+        method: 'DELETE',
+      })
+      
+      if (!response.ok) throw new Error('Failed to delete purchase')
+      
+      // Refresh purchases after deletion
+      await get().fetchPurchases()
+    } catch (error) {
+      console.error('Error deleting purchase:', error)
+      throw error
     }
   },
 }))

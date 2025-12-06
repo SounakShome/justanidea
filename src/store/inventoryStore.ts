@@ -144,12 +144,15 @@ export const useInventoryStore = create<InventoryState>((set, get) => ({
     try {
       set({ isLoading: true });
       const response = await fetch('/api/products');
+      if (!response.ok) {
+        throw new Error('Failed to fetch products');
+      }
       const data = await response.json();
-      set({ products: data || [] });
+      set({ products: data || [], filteredProducts: data || [] });
       get().filterAndSortProducts();
     } catch (error) {
       console.error('Error refreshing products:', error);
-      set({ products: [] });
+      set({ products: [], filteredProducts: [] });
     } finally {
       set({ isLoading: false });
     }
@@ -161,24 +164,95 @@ export const useInventoryStore = create<InventoryState>((set, get) => ({
     
     let filtered = [...products]
     
-    // Apply search filter
+    // Apply search filter with ranking
     if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase()
-      filtered = filtered.filter(product =>
-        product.name.toLowerCase().includes(query) ||
-        product.variants?.some(variant => 
-          variant.name.toLowerCase().includes(query) ||
-          variant.barcode?.toLowerCase().includes(query)
-        )
-      )
+      const query = searchQuery.toLowerCase().trim()
+      const queryWords = query.split(/\s+/).filter(word => word.length > 0)
+      
+      // Flatten: Create scored items for each variant
+      const scoredItems: Array<{ product: Product, score: number }> = []
+      
+      filtered.forEach(product => {
+        // For each variant, calculate its individual score
+        product.variants?.forEach(variant => {
+          let score = 0
+          
+          const productName = product.name.toLowerCase()
+          const variantName = variant.name.toLowerCase()
+          const barcode = variant.barcode?.toLowerCase() || ''
+          
+          // Combined search string: product name + variant name
+          const combinedName = `${productName} ${variantName}`.toLowerCase()
+          
+          // Check barcode first (highest priority) - exact or partial match
+          if (barcode && barcode === query) {
+            score = 100 // Exact barcode match
+          } else if (barcode && barcode.includes(query)) {
+            score = 90 // Barcode contains full query
+          } 
+          // Check if all query words exist in combined name
+          else {
+            const allWordsMatch = queryWords.every(word => combinedName.includes(word))
+            
+            if (allWordsMatch) {
+              // Calculate score based on how well the words match
+              let matchQuality = 0
+              
+              // Check if combined name equals the query exactly
+              if (combinedName === query) {
+                matchQuality = 100
+              }
+              // Check if variant name equals the query
+              else if (variantName === query) {
+                matchQuality = 90
+              }
+              // Check if product name equals the query
+              else if (productName === query) {
+                matchQuality = 85
+              }
+              // Check if combined name starts with query
+              else if (combinedName.startsWith(query)) {
+                matchQuality = 80
+              }
+              // Check if variant name starts with query
+              else if (variantName.startsWith(query)) {
+                matchQuality = 75
+              }
+              // Check if product name starts with query
+              else if (productName.startsWith(query)) {
+                matchQuality = 70
+              }
+              // All words present, calculate score based on word count
+              else {
+                // More words matched = higher base score
+                const wordMatchBonus = Math.min(queryWords.length * 10, 40)
+                matchQuality = 50 + wordMatchBonus
+              }
+              
+              score = matchQuality
+            }
+          }
+          
+          // Only include variants that match
+          if (score > 0) {
+            // Create a new product with only this variant
+            const filteredProduct: Product = {
+              ...product,
+              variants: [variant]
+            }
+            scoredItems.push({ product: filteredProduct, score })
+          }
+        })
+      })
+      
+      // Sort by score and extract products
+      filtered = scoredItems
+        .sort((a, b) => b.score - a.score)
+        .map(item => item.product)
     }
     
     // Apply category filter (based on HSN or can be disabled)
     if (selectedCategory !== 'all') {
-      // You can customize this based on your needs:
-      // Option 1: Filter by HSN ranges (if HSN represents categories)
-      // Option 2: Filter by product name patterns
-      // Option 3: Add category field to your Product type later
       
       // For now, let's filter by HSN ranges as categories
       const categoryHSN = parseInt(selectedCategory)
@@ -189,8 +263,9 @@ export const useInventoryStore = create<InventoryState>((set, get) => ({
       }
     }
     
-    // Apply sorting
-    filtered.sort((a, b) => {
+    // Apply sorting ONLY if there's no search query (ranking takes priority)
+    if (!searchQuery.trim()) {
+      filtered.sort((a, b) => {
       let aValue: any, bValue: any
       
       switch (sortBy) {
@@ -232,6 +307,7 @@ export const useInventoryStore = create<InventoryState>((set, get) => ({
         return aValue > bValue ? -1 : aValue < bValue ? 1 : 0
       }
     })
+    }
     
     set({ filteredProducts: filtered })
   },

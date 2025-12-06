@@ -54,6 +54,7 @@ export type PurchaseFormValues = {
     items: PurchaseItem[];
     subtotal: number;
     discount: number;
+    discountType: 'percentage' | 'amount';
     taxableAmount: number;
     tax: 'igst' | 'sgst_cgst';
     igst?: number;

@@ -77,6 +77,16 @@ export default function InventoryPage() {
         HSN: ''
     });
 
+    // Load products on mount
+    useEffect(() => {
+        refreshProducts();
+    }, [refreshProducts]);
+
+    // Barcode scan handler
+    const handleBarcodeScanned = (barcode: string) => {
+        setSearchQuery(barcode);
+    };
+
     // Action handlers
     const handleEdit = (variant: ExtendedVariant) => {
         setEditingVariant(variant);
@@ -346,16 +356,6 @@ export default function InventoryPage() {
             toast.error("Error updating product");
         }
     };
-
-    const handleBarcodeScanned = (code: string) => {
-        // Use the barcode as search query to find matching products
-        setSearchQuery(code);
-    };
-
-    // Fetch inventory items on component mount
-    useEffect(() => {
-        refreshProducts();
-    }, [refreshProducts]);
 
     // Flatten filtered products and variants for display
     const allVariants = filteredProducts?.flatMap(product => 

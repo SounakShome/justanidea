@@ -38,14 +38,17 @@ export default function PurchasesPage() {
 		fetchPurchases();
 	}, [fetchPurchases]);
 
+	// Ensure filteredPurchases is always an array
+	const purchasesList = Array.isArray(filteredPurchases) ? filteredPurchases : [];
+
 	// Filter purchases by status
-	const pendingPurchases = filteredPurchases.filter(purchase => 
+	const pendingPurchases = purchasesList.filter(purchase => 
 		purchase.status.toLowerCase() === 'pending'
 	);
-	const receivedPurchases = filteredPurchases.filter(purchase => 
+	const receivedPurchases = purchasesList.filter(purchase => 
 		purchase.status.toLowerCase() === 'received'
 	);
-	const cancelledPurchases = filteredPurchases.filter(purchase => 
+	const cancelledPurchases = purchasesList.filter(purchase => 
 		purchase.status.toLowerCase() === 'cancelled'
 	);
 
@@ -219,7 +222,7 @@ export default function PurchasesPage() {
 								<span>#{purchase.invoiceNo}</span>
 							</div>
 							<div className="flex items-center gap-1">
-								<Calendar className="h-3 w-3 flex-shrink-0" />
+								<Calendar className="h-3 w-3 shrink-0" />
 								<span>{new Date(purchase.purchaseDate).toLocaleDateString()}</span>
 							</div>
 							<div className="font-medium text-foreground">
@@ -237,7 +240,7 @@ export default function PurchasesPage() {
 									<span>#{purchase.invoiceNo}</span>
 								</span>
 								<span className="flex items-center gap-1">
-									<Calendar className="h-4 w-4 flex-shrink-0" />
+									<Calendar className="h-4 w-4 shrink-0" />
 									<span>{new Date(purchase.purchaseDate).toLocaleDateString()}</span>
 								</span>
 								<span className="font-medium">
@@ -245,7 +248,7 @@ export default function PurchasesPage() {
 								</span>
 							</div>
 						</div>
-						<Badge variant="secondary" className="flex-shrink-0">
+						<Badge variant="secondary" className="shrink-0">
 							{purchase.status.charAt(0).toUpperCase() + purchase.status.slice(1)}
 						</Badge>
 					</div>
@@ -465,7 +468,7 @@ export default function PurchasesPage() {
 								variant="ghost"
 								size="sm"
 								onClick={closePurchaseDetails}
-								className="flex-shrink-0 ml-2"
+								className="shrink-0 ml-2"
 							>
 								<X className="h-4 w-4" />
 							</Button>

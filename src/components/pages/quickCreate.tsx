@@ -26,40 +26,45 @@ export default function Page() {
     const [ordersCount, setOrdersCount] = useState(0);
     const [countsLoading, setCountsLoading] = useState(true);
 
+    const fetchCounts = async () => {
+        setCountsLoading(true);
+        try {
+            const [customersRes, suppliersRes, ordersRes] = await Promise.all([
+                fetch("/api/customers"),
+                fetch("/api/getSuppliers"),
+                fetch("/api/orders")
+            ]);
+            
+            if (customersRes.ok) {
+                const customers = await customersRes.json();
+                setCustomersCount(Array.isArray(customers) ? customers.length : 0);
+            }
+            
+            if (suppliersRes.ok) {
+                const suppliers = await suppliersRes.json();
+                setSuppliersCount(Array.isArray(suppliers) ? suppliers.length : 0);
+            }
+            
+            if (ordersRes.ok) {
+                const orders = await ordersRes.json();
+                setOrdersCount(Array.isArray(orders) ? orders.length : 0);
+            }
+        } catch (error) {
+            console.error("Error fetching counts:", error);
+        } finally {
+            setCountsLoading(false);
+        }
+    };
+
+    const handleFormClose = () => {
+        setOpen("");
+        // Refresh stats after closing form
+        refreshProducts();
+        fetchCounts();
+    };
+
     useEffect(() => {
         refreshProducts();
-        
-        // Fetch counts for other entities
-        const fetchCounts = async () => {
-            setCountsLoading(true);
-            try {
-                const [customersRes, suppliersRes, ordersRes] = await Promise.all([
-                    fetch("/api/customers"),
-                    fetch("/api/getSuppliers"),
-                    fetch("/api/orders")
-                ]);
-                
-                if (customersRes.ok) {
-                    const customers = await customersRes.json();
-                    setCustomersCount(Array.isArray(customers) ? customers.length : 0);
-                }
-                
-                if (suppliersRes.ok) {
-                    const suppliers = await suppliersRes.json();
-                    setSuppliersCount(Array.isArray(suppliers) ? suppliers.length : 0);
-                }
-                
-                if (ordersRes.ok) {
-                    const orders = await ordersRes.json();
-                    setOrdersCount(Array.isArray(orders) ? orders.length : 0);
-                }
-            } catch (error) {
-                console.error("Error fetching counts:", error);
-            } finally {
-                setCountsLoading(false);
-            }
-        };
-        
         fetchCounts();
     }, [refreshProducts]);
 
@@ -173,10 +178,10 @@ export default function Page() {
                         </div>
 
                         <div className="max-h-[80vh] overflow-y-auto">
-                            {open === "customers" && <CustomerForm onClose={() => setOpen("")} />}
-                            {open === "suppliers" && <SupplierForm onClose={() => setOpen("")} />}
-                            {open === "products" && <ProductForm onClose={() => setOpen("")} />}
-                            {open === "variants" && <VariantForm onClose={() => setOpen("")} />}
+                            {open === "customers" && <CustomerForm onClose={handleFormClose} />}
+                            {open === "suppliers" && <SupplierForm onClose={handleFormClose} />}
+                            {open === "products" && <ProductForm onClose={handleFormClose} />}
+                            {open === "variants" && <VariantForm onClose={handleFormClose} />}
                         </div>
                     </div>
                 </div>

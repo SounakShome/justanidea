@@ -44,6 +44,7 @@ export default function PurchaseEntryForm() {
 		addVariantToItems,
 		updateItemQuantity,
 		updateItemDiscount,
+		updateVariantDiscount,
 		removeItem,
 		updateFormField,
 		resetForm,
@@ -55,10 +56,22 @@ export default function PurchaseEntryForm() {
 	// Modal state for adding items
 	const [isModalOpen, setIsModalOpen] = useState(false);
 	const [selectedVariant, setSelectedVariant] = useState<Variant | null>(null);
-	const [selectedSize, setSelectedSize] = useState<string>("");
-	const [selectedSizeData, setSelectedSizeData] = useState<any>(null);
-	const [modalQuantity, setModalQuantity] = useState<number | "">("");
-	const [modalBuyingPrice, setModalBuyingPrice] = useState<number>(0);
+	const [isEditMode, setIsEditMode] = useState(false);
+	const [selectedSizes, setSelectedSizes] = useState<Array<{
+		size: string;
+		quantity: string;
+		buyingPrice: number;
+		stock: number;
+	}>>([]);
+	
+	// Delete modal state
+	const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+	const [itemsToDelete, setItemsToDelete] = useState<Array<{
+		variantId: string;
+		size: string;
+		variantName: string;
+	}>>([]);
+	const [selectedDeleteItems, setSelectedDeleteItems] = useState<string[]>([]);
 
 	// Helper function to safely parse sizes JSON
 	const getSizes = (variant: any) => {
@@ -81,52 +94,131 @@ export default function PurchaseEntryForm() {
 	// Search variants when supplier changes or query changes
 	useEffect(() => {
 		if (purchaseForm.supplierId) {
-			const timer = setTimeout(() => {
-				fetchVariants(purchaseForm.supplierId, variantSearchQuery).catch(() => {
-					toast.error("Failed to search products");
-				});
-			}, 300);
-			return () => clearTimeout(timer);
+			fetchVariants(purchaseForm.supplierId, variantSearchQuery).catch(() => {
+				toast.error("Failed to search products");
+			});
 		}
 	}, [purchaseForm.supplierId, variantSearchQuery, fetchVariants]);
 
-	// Handle opening modal with selected variant and size
-	const handleOpenModal = (variant: Variant, size: string, sizeData: any) => {
+	// Handle opening modal with selected variant
+	const handleOpenModal = (variant: Variant) => {
 		setSelectedVariant(variant);
-		setSelectedSize(size);
-		setSelectedSizeData(sizeData);
-		setModalQuantity("");
-		setModalBuyingPrice(sizeData.buyingPrice);
+		setIsEditMode(false);
+		const sizes = getSizes(variant);
+		// Initialize with all sizes, no quantity by default
+		setSelectedSizes(sizes.map((sizeData: any) => ({
+			size: sizeData.size,
+			quantity: "",
+			buyingPrice: sizeData.buyingPrice,
+			stock: sizeData.stock
+		})));
 		setIsModalOpen(true);
 	};
 
-	// Handle adding item from modal
+	// Update quantity for a size
+	const updateSizeQuantity = (sizeIndex: number, quantity: string) => {
+		setSelectedSizes(prev => prev.map((item, idx) => 
+			idx === sizeIndex ? { ...item, quantity } : item
+		));
+	};
+
+	// Update buying price for a size
+	const updateSizeBuyingPrice = (sizeIndex: number, price: number) => {
+		setSelectedSizes(prev => prev.map((item, idx) => 
+			idx === sizeIndex ? { ...item, buyingPrice: price } : item
+		));
+	};
+
+	// Handle adding items from modal
 	const handleAddItemFromModal = () => {
-		if (!selectedVariant || !selectedSize || !modalQuantity || modalQuantity < 1) return;
+		if (!selectedVariant) return;
 
-		// Create a modified variant with updated buying price
-		const modifiedVariant = {
-			...selectedVariant,
-			sizes: selectedVariant.sizes.map((s: any) => 
-				s.size === selectedSize 
-					? { ...s, buyingPrice: modalBuyingPrice }
-					: s
-			)
-		};
+		// Get only sizes with quantity entered
+		const selectedItems = selectedSizes.filter(item => {
+			const qty = item.quantity === "" ? 0 : parseInt(item.quantity);
+			return !isNaN(qty) && qty > 0;
+		});
 
-		// Add item with the specified quantity
-		const qty = typeof modalQuantity === "string" ? parseInt(modalQuantity) : modalQuantity;
-		for (let i = 0; i < qty; i++) {
-			addVariantToItems(modifiedVariant, selectedSize);
+		if (selectedItems.length === 0) {
+			toast.error("Please enter quantity for at least one size");
+			return;
 		}
+
+		if (isEditMode) {
+			// In edit mode: first remove all existing items for this variant, then add new ones
+			const existingItems = purchaseForm.items.filter(item => item.variantId === selectedVariant.id);
+			existingItems.forEach(item => {
+				removeItem(item.variantId, item.size);
+			});
+		}
+
+		let addedCount = 0;
+		selectedItems.forEach(item => {
+			// Create a modified variant with updated buying price for this specific size
+			const modifiedVariant = {
+				...selectedVariant,
+				sizes: selectedVariant.sizes.map((s: any) => 
+					s.size === item.size 
+						? { ...s, buyingPrice: item.buyingPrice }
+						: s
+				)
+			};
+
+			// Add item with the specified quantity
+			const qty = parseInt(item.quantity);
+			for (let i = 0; i < qty; i++) {
+				addVariantToItems(modifiedVariant, item.size);
+			}
+			addedCount += qty;
+		});
 
 		// Close modal and reset
 		setIsModalOpen(false);
 		setSelectedVariant(null);
-		setSelectedSize("");
-		setSelectedSizeData(null);
+		setIsEditMode(false);
+		setSelectedSizes([]);
 		setVariantSearchQuery("");
-		toast.success(`Added ${qty} item(s) to purchase`);
+		toast.success(isEditMode ? `Updated quantities` : `Added ${addedCount} item(s) to purchase`);
+	};
+
+	// Handle opening delete modal
+	const handleOpenDeleteModal = (groupItems: typeof purchaseForm.items, variant: any) => {
+		setItemsToDelete(groupItems.map(item => ({
+			variantId: item.variantId,
+			size: item.size,
+			variantName: `${variant.product.name} - ${variant.name}`
+		})));
+		setSelectedDeleteItems([]);
+		setDeleteModalOpen(true);
+	};
+
+	// Handle toggling delete item selection
+	const toggleDeleteItem = (size: string) => {
+		setSelectedDeleteItems(prev => 
+			prev.includes(size) 
+				? prev.filter(s => s !== size)
+				: [...prev, size]
+		);
+	};
+
+	// Handle deleting selected items
+	const handleDeleteSelectedItems = () => {
+		if (selectedDeleteItems.length === 0) {
+			toast.error("Please select at least one item to remove");
+			return;
+		}
+		
+		selectedDeleteItems.forEach(size => {
+			const item = itemsToDelete.find(i => i.size === size);
+			if (item) {
+				removeItem(item.variantId, item.size);
+			}
+		});
+		
+		setDeleteModalOpen(false);
+		setItemsToDelete([]);
+		setSelectedDeleteItems([]);
+		toast.success(`Removed ${selectedDeleteItems.length} item(s)`);
 	};
 
 	// Handle Enter key in modal
@@ -340,7 +432,7 @@ export default function PurchaseEntryForm() {
 																		type="button"
 																		size="sm"
 																		variant="outline"
-																		onClick={() => handleOpenModal(variant, sizeData.size, sizeData)}
+																		onClick={() => handleOpenModal(variant)}
 																		className="h-auto py-1.5 px-3 flex flex-col items-start"
 																	>
 																		<span className="font-semibold text-xs">{sizeData.size}</span>
@@ -369,126 +461,181 @@ export default function PurchaseEntryForm() {
 									</div>
 									{purchaseForm.items.length > 0 ? (
 										<div>
-											{/* Desktop Header */}
-											<div className="hidden md:grid grid-cols-12 gap-4 px-4 py-3 bg-muted/50 text-xs font-medium border-b">
-												<div className="col-span-3">Product</div>
-												<div className="col-span-1">Size</div>
-												<div className="col-span-2">Price</div>
-												<div className="col-span-2">Qty</div>
-												<div className="col-span-2">Discount %</div>
-												<div className="col-span-2 text-right pr-10">Total</div>
-											</div>
+									{/* Desktop Header */}
+									<div className="hidden md:grid grid-cols-12 gap-4 px-4 py-3 bg-muted/50 text-xs font-medium border-b">
+										<div className="col-span-4">Product</div>
+										<div className="col-span-2">Price</div>
+										<div className="col-span-2">Qty</div>
+										<div className="col-span-2">Discount %</div>
+										<div className="col-span-2 text-right pr-10">Total</div>
+									</div>											{/* Items */}
+											<div className="max-h-[300px] overflow-y-auto">
+												{(() => {
+													// Group items by variantId and unitPrice
+													const groupedItems = purchaseForm.items.reduce((acc, item) => {
+														const key = `${item.variantId}-${item.unitPrice}`;
+														if (!acc[key]) {
+															acc[key] = {
+																variantId: item.variantId,
+																unitPrice: item.unitPrice,
+																items: []
+															};
+														}
+														acc[key].items.push(item);
+														return acc;
+													}, {} as Record<string, { variantId: string; unitPrice: number; items: typeof purchaseForm.items }>);
 
-											{/* Items */}
-											<ScrollArea className="max-h-[300px]">
-												{purchaseForm.items.map((item, idx) => {
-													const variant = getVariantDetails(item.variantId);
-													if (!variant) return null;
-													
-													const sizes = getSizes(variant);
-													const sizeData = sizes.find((s: any) => s.size === item.size);
-													
-													return (
-														<div key={`${item.variantId}-${item.size}-${idx}`} className="border-b last:border-0">
-															{/* Mobile */}
-															<div className="md:hidden p-3 space-y-3">
-																<div className="flex items-start justify-between">
-																	<div className="flex-1">
-																		<p className="font-medium text-sm">{variant.product.name} - {variant.name}</p>
-																		<p className="text-xs text-muted-foreground">Size: {item.size}</p>
-																		<p className="text-xs text-muted-foreground">Stock: {sizeData?.stock || 0}</p>
+													return Object.values(groupedItems).map((group, groupIdx) => {
+														const variant = getVariantDetails(group.variantId);
+														if (!variant) return null;
+
+														const sizes = getSizes(variant);
+														const totalQuantity = group.items.reduce((sum, item) => sum + item.quantity, 0);
+														const totalPrice = group.items.reduce((sum, item) => sum + item.totalPrice, 0);
+														const avgDiscount = group.items.reduce((sum, item) => sum + item.discount, 0) / group.items.length;
+														const sizesDisplay = group.items.map(item => `${item.size} (${item.quantity})`).join(', ');
+
+														return (
+															<div key={`group-${groupIdx}`} className="border-b last:border-0">
+																{/* Mobile */}
+																<div className="md:hidden p-3 space-y-3">
+																	<div className="flex items-start justify-between">
+																		<div className="flex-1">
+																			<p className="font-medium text-sm">{variant.product.name} - {variant.name}</p>
+																			<p className="text-xs text-muted-foreground mt-1">
+																				Sizes: {sizesDisplay}
+																			</p>
+																			{group.items.map((item, idx) => {
+																				const sizeData = sizes.find((s: any) => s.size === item.size);
+																				return (
+																					<p key={idx} className="text-xs text-muted-foreground">
+																						{item.size} stock: {sizeData?.stock || 0}
+																					</p>
+																				);
+																			})}
+																		</div>
+																		<Button
+																			type="button"
+																			variant="ghost"
+																			size="icon"
+																			onClick={() => handleOpenDeleteModal(group.items, variant)}
+																			className="h-7 w-7 text-destructive"
+																		>
+																			<Trash2 className="h-4 w-4" />
+																		</Button>
 																	</div>
-																	<Button
-																		type="button"
-																		variant="ghost"
-																		size="icon"
-																		onClick={() => removeItem(item.variantId, item.size)}
-																		className="h-8 w-8 text-destructive"
-																	>
-																		<Trash2 className="h-4 w-4" />
-																	</Button>
+																	<div className="grid grid-cols-2 gap-2">
+																		<div>
+																			<Label className="text-xs mb-1">Price</Label>
+																			<p className="text-sm font-medium">₹{group.unitPrice}</p>
+																		</div>
+																		<div>
+																			<Label className="text-xs mb-1">Total Qty</Label>
+																			<p className="text-sm font-medium">{totalQuantity}</p>
+																		</div>
+																	</div>
+																	<div className="space-y-2 pt-2 border-t">
+																		<div className="flex gap-2 flex-wrap">
+																			{group.items.map((item, idx) => (
+																				<div key={idx} className="flex items-center gap-2 text-xs">
+																					<Badge variant="outline" className="shrink-0">{item.size}</Badge>
+																					<Input
+																						type="number"
+																						min="1"
+																						value={item.quantity}
+																						onChange={(e) => updateItemQuantity(item.variantId, item.size, parseInt(e.target.value) || 1)}
+																						className="h-7 w-16 text-xs"
+																					/>
+																				</div>
+																			))}
+																		</div>
+																		<div className="flex items-center gap-2">
+																			<Label className="text-xs">Discount %:</Label>
+																			<Input
+																				type="number"
+																				step="0.01"
+																				max="100"
+																				value={group.items[0].discount === 0 ? '' : group.items[0].discount}
+																				onChange={(e) => updateVariantDiscount(variant.id, e.target.value ? parseFloat(e.target.value) : 0)}
+																				placeholder="0"
+																				className="h-7 w-20 text-xs"
+																			/>
+																		</div>
+																	</div>
+																	<div className="flex justify-between items-center pt-2 border-t">
+																		<span className="text-xs text-muted-foreground">Total</span>
+																		<span className="font-semibold">₹{totalPrice.toFixed(2)}</span>
+																	</div>
 																</div>
-																<div className="grid grid-cols-3 gap-2">
-																	<div>
-																		<Label className="text-xs mb-1">Price</Label>
-																		<p className="text-sm font-medium">₹{item.unitPrice}</p>
+
+																{/* Desktop */}
+																<div className="hidden md:block px-4 py-4">
+																	<div className="grid grid-cols-12 gap-4 items-start">
+																		<div className="col-span-4">
+																			<p className="font-medium text-sm">{variant.product.name} - {variant.name}</p>
+																			<p className="text-xs text-muted-foreground mt-1">
+																				{sizesDisplay}
+																			</p>
+																		</div>
+																	<div className="col-span-2">
+																		<p className="text-sm font-medium">₹{group.unitPrice}</p>
 																	</div>
-																	<div>
-																		<Label className="text-xs mb-1">Quantity</Label>
-																		<Input
-																			type="number"
-																			min="1"
-																			value={item.quantity}
-																			onChange={(e) => updateItemQuantity(item.variantId, item.size, parseInt(e.target.value) || 1)}
-																			className="h-8"
-																		/>
+																	<div className="col-span-2">
+																		<div className="flex items-center gap-2">
+																			<span className="text-sm font-medium min-w-8">{totalQuantity}</span>
+																			<Button
+																				type="button"
+																				variant="outline"
+																				size="sm"
+																				onClick={() => {
+																				// Open modal with current quantities
+																				const sizes = getSizes(variant);
+																				setSelectedVariant(variant);
+																				setIsEditMode(true);
+																				setSelectedSizes(group.items.map(item => ({
+																						size: item.size,
+																						quantity: item.quantity.toString(),
+																						buyingPrice: item.unitPrice,
+																						stock: sizes.find((s: any) => s.size === item.size)?.stock || 0
+																					})));
+																					setIsModalOpen(true);
+																				}}
+																				className="h-7 px-2 text-xs"
+																			>
+																				Edit
+																			</Button>
+																		</div>
 																	</div>
-																	<div>
-																		<Label className="text-xs mb-1">Disc %</Label>
+																	<div className="col-span-2">
 																		<Input
 																			type="number"
 																			step="0.01"
 																			max="100"
-																			value={item.discount}
-																			onChange={(e) => updateItemDiscount(item.variantId, item.size, parseFloat(e.target.value) || 0)}
-																			className="h-8"
+																			value={group.items[0].discount === 0 ? '' : group.items[0].discount}
+																			onChange={(e) => updateVariantDiscount(variant.id, e.target.value ? parseFloat(e.target.value) : 0)}
+																			placeholder="0"
+																			className="h-8 w-20"
 																		/>
 																	</div>
-																</div>
-																<div className="flex justify-between items-center pt-2 border-t">
-																	<span className="text-xs text-muted-foreground">Total</span>
-																	<span className="font-semibold">₹{item.totalPrice.toFixed(2)}</span>
-																</div>
-															</div>
-
-															{/* Desktop */}
-															<div className="hidden md:grid grid-cols-12 gap-4 items-center px-4 py-4">
-																<div className="col-span-3">
-																	<p className="font-medium text-sm">{variant.product.name} - {variant.name}</p>
-																	<p className="text-xs text-muted-foreground mt-0.5">Stock: {sizeData?.stock || 0}</p>
-																</div>
-																<div className="col-span-1">
-																	<Badge variant="secondary">{item.size}</Badge>
-																</div>
-																<div className="col-span-2">
-																	<p className="text-sm font-medium">₹{item.unitPrice}</p>
-																</div>
-																<div className="col-span-2">
-																	<Input
-																		type="number"
-																		min="1"
-																		value={item.quantity}
-																		onChange={(e) => updateItemQuantity(item.variantId, item.size, parseInt(e.target.value) || 1)}
-																		className="h-9 w-20"
-																	/>
-																</div>
-																<div className="col-span-2">
-																	<Input
-																		type="number"
-																		step="0.01"
-																		max="100"
-																		value={item.discount}
-																		onChange={(e) => updateItemDiscount(item.variantId, item.size, parseFloat(e.target.value) || 0)}
-																		className="h-9 w-20"
-																	/>
-																</div>
-																<div className="col-span-2 flex items-center justify-end gap-3">
-																	<span className="font-semibold text-sm">₹{item.totalPrice.toFixed(2)}</span>
-																	<Button
-																		type="button"
-																		variant="ghost"
-																		size="icon"
-																		onClick={() => removeItem(item.variantId, item.size)}
-																		className="h-8 w-8 text-destructive"
-																	>
-																		<Trash2 className="h-4 w-4" />
-																	</Button>
+																	<div className="col-span-2 flex items-center justify-end gap-3">
+																			<span className="font-bold text-base">₹{totalPrice.toFixed(2)}</span>
+																			<Button
+																				type="button"
+																				variant="ghost"
+																				size="icon"
+																				onClick={() => handleOpenDeleteModal(group.items, variant)}
+																				className="h-8 w-8 text-destructive"
+																			>
+																				<Trash2 className="h-4 w-4" />
+																			</Button>
+																		</div>
+																	</div>
 																</div>
 															</div>
-														</div>
-													);
-												})}
-											</ScrollArea>
+														);
+													});
+												})()}
+											</div>
 										</div>
 									) : (
 										<div className="py-12 text-center">
@@ -529,21 +676,33 @@ export default function PurchaseEntryForm() {
 									<span className="font-medium">₹{purchaseForm.subtotal.toFixed(2)}</span>
 								</div>
 
-								<div className="space-y-2">
-									<Label className="text-sm">Discount</Label>
+							<div className="space-y-2">
+								<Label className="text-sm">Discount</Label>
+								<div className="flex gap-2">
+									<Select
+										value={purchaseForm.discountType}
+										onValueChange={(value) => updateFormField('discountType', value as "percentage" | "amount")}
+									>
+										<SelectTrigger className="w-[110px]">
+											<SelectValue />
+										</SelectTrigger>
+										<SelectContent>
+											<SelectItem value="percentage">%</SelectItem>
+											<SelectItem value="amount">₹</SelectItem>
+										</SelectContent>
+									</Select>
 									<Input
 										type="number"
 										step="0.01"
 										placeholder="0"
 										value={purchaseForm.discount || ""}
 										onChange={(e) => updateFormField('discount', parseFloat(e.target.value) || 0)}
-										className="h-9"
+										className="h-9 flex-1"
 									/>
 								</div>
+							</div>
 
-								<Separator />
-
-								<div className="flex justify-between text-sm">
+							<Separator />								<div className="flex justify-between text-sm">
 									<span className="text-muted-foreground">Taxable Amount</span>
 									<span className="font-medium">₹{purchaseForm.taxableAmount.toFixed(2)}</span>
 								</div>
@@ -639,69 +798,133 @@ export default function PurchaseEntryForm() {
 
 			{/* Add Item Modal */}
 			<Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-				<DialogContent className="sm:max-w-md" onKeyDown={handleModalKeyPress}>
+				<DialogContent className="sm:max-w-2xl max-h-[90vh]" onKeyDown={handleModalKeyPress}>
 					<DialogHeader>
-						<DialogTitle>Add Item to Purchase</DialogTitle>
+						<DialogTitle>Add Items to Purchase</DialogTitle>
 						<DialogDescription>
-							{selectedVariant && `${selectedVariant.product?.name} - ${selectedVariant.name} (${selectedSize})`}
+							{selectedVariant && `${selectedVariant.product?.name} - ${selectedVariant.name}`}
 						</DialogDescription>
 					</DialogHeader>
-					<div className="space-y-4 py-4">
-						<div className="space-y-2">
-							<Label htmlFor="modal-quantity">Quantity *</Label>
-							<Input
-								id="modal-quantity"
-								type="number"
-								min="1"
-								value={modalQuantity}
-								onChange={(e) => {
-									const val = e.target.value;
-									setModalQuantity(val === "" ? "" : parseInt(val) || "");
-								}}
-								className="h-10"
-								autoFocus
-								placeholder="Enter quantity"
-							/>
+					<ScrollArea className="max-h-[60vh] pr-4">
+						<div className="py-4">
+							<p className="text-sm text-muted-foreground mb-4">
+								Enter quantities for sizes you want to add
+							</p>
+							<div className="space-y-2">
+								{/* Header */}
+								<div className="grid grid-cols-12 gap-3 px-3 py-2 bg-muted/50 rounded-lg font-medium text-sm">
+									<div className="col-span-3">Size</div>
+									<div className="col-span-3">Quantity</div>
+									<div className="col-span-4">Buying Price</div>
+									<div className="col-span-2">Stock</div>
+								</div>
+								
+								{/* Rows */}
+								{selectedSizes.map((sizeItem, idx) => (
+									<div 
+										key={idx}
+										className="grid grid-cols-12 gap-3 px-3 py-2 border rounded-lg items-center"
+									>
+										<div className="col-span-3">
+											<Label className="text-base font-semibold">{sizeItem.size}</Label>
+										</div>
+										<div className="col-span-3">
+											<Input
+												id={`quantity-${idx}`}
+												type="number"
+												min="0"
+												value={sizeItem.quantity}
+												onChange={(e) => updateSizeQuantity(idx, e.target.value)}
+												className="h-9"
+												placeholder="0"
+											/>
+										</div>
+										<div className="col-span-4">
+											<Input
+												id={`price-${idx}`}
+												type="number"
+												step="0.01"
+												min="0"
+												value={sizeItem.buyingPrice}
+												onChange={(e) => updateSizeBuyingPrice(idx, parseFloat(e.target.value) || 0)}
+												className="h-9"
+											/>
+										</div>
+										<div className="col-span-2">
+											<p className="text-sm text-muted-foreground">{sizeItem.stock}</p>
+										</div>
+									</div>
+								))}
+							</div>
 						</div>
-						<div className="space-y-2">
-							<Label htmlFor="modal-buying-price">Buying Price *</Label>
-							<Input
-								id="modal-buying-price"
-								type="number"
-								step="0.01"
-								min="0"
-								value={modalBuyingPrice}
-								onChange={(e) => setModalBuyingPrice(parseFloat(e.target.value) || 0)}
-								className="h-10"
-							/>
-							{selectedSizeData && (
-								<p className="text-xs text-muted-foreground">
-									Original price: ₹{selectedSizeData.buyingPrice} | Stock: {selectedSizeData.stock}
-								</p>
-							)}
-						</div>
-					</div>
-					<DialogFooter className="gap-3 sm:gap-3 flex-row sm:flex-row sm:justify-end">
+					</ScrollArea>
+					<DialogFooter className="gap-2 sm:gap-2">
 						<Button
 							type="button"
 							variant="outline"
 							onClick={() => setIsModalOpen(false)}
-							className="flex-1 sm:flex-none"
 						>
 							Cancel
 						</Button>
 						<Button
 							type="button"
 							onClick={handleAddItemFromModal}
-							disabled={
-								modalQuantity === "" || 
-								typeof modalQuantity === "string" ||
-								modalQuantity < 1 || 
-								!modalBuyingPrice
-							}
-							className="flex-1 sm:flex-none"
 						>
 							Add to Purchase
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
+
+			{/* Delete Items Modal */}
+			<Dialog open={deleteModalOpen} onOpenChange={setDeleteModalOpen}>
+				<DialogContent className="sm:max-w-md">
+					<DialogHeader>
+						<DialogTitle>Remove Items</DialogTitle>
+						<DialogDescription>
+							Select which sizes to remove from this purchase
+						</DialogDescription>
+					</DialogHeader>
+					<ScrollArea className="max-h-[60vh]">
+						<div className="space-y-2 py-4">
+							{itemsToDelete.map((item, idx) => (
+								<label
+									key={idx}
+									className="flex items-center gap-3 p-3 border rounded-lg hover:bg-accent cursor-pointer transition-colors"
+								>
+									<input
+										type="checkbox"
+										checked={selectedDeleteItems.includes(item.size)}
+										onChange={() => toggleDeleteItem(item.size)}
+										className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+									/>
+									<div className="flex-1">
+										<div className="font-medium">{item.variantName}</div>
+										<div className="text-sm text-muted-foreground">Size: {item.size}</div>
+									</div>
+								</label>
+							))}
+						</div>
+					</ScrollArea>
+					<DialogFooter className="gap-2 sm:gap-2">
+						<Button
+							type="button"
+							variant="outline"
+							onClick={() => {
+								setDeleteModalOpen(false);
+								setItemsToDelete([]);
+								setSelectedDeleteItems([]);
+							}}
+						>
+							Cancel
+						</Button>
+						<Button
+							type="button"
+							variant="destructive"
+							onClick={handleDeleteSelectedItems}
+							disabled={selectedDeleteItems.length === 0}
+						>
+							Remove Selected
 						</Button>
 					</DialogFooter>
 				</DialogContent>
